@@ -99,7 +99,9 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 val negative = if (isLight) Color.rgb(180, 48, 48) else Color.rgb(255, 150, 150)
 
                 views.setInt(R.id.widget_background, "setColorFilter", background)
-                views.setInt(R.id.widget_background, "setAlpha", (opacity * 255 / 100).coerceIn(0, 255))
+                // ImageView#setAlpha expects a Float. Using setInt here causes
+                // RemoteViews to throw while the launcher is rendering the widget.
+                views.setFloat(R.id.widget_background, "setAlpha", (opacity / 100f).coerceIn(0f, 1f))
                 views.setTextColor(R.id.widget_title, foreground)
                 views.setTextColor(R.id.widget_value, foreground)
                 views.setTextColor(R.id.widget_pnl, if (s.totalPnl >= 0) positive else negative)
