@@ -46,6 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
 
+private val SettingsCornerShape = RoundedCornerShape(24.dp)
+
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
@@ -90,21 +92,18 @@ class WidgetConfigActivity : ComponentActivity() {
                     onDispose { }
                 }
 
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .statusBarsPadding()
-                                .padding(top = 8.dp, start = 24.dp, end = 24.dp)
+                                .padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 22.dp)
                         ) {
                             Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text("Customize this widget. Other widgets can use different settings.", style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(14.dp))
+                            Spacer(Modifier.height(18.dp))
                             WidgetPreview(theme, opacity, layout, showToday, showBreakdown)
                         }
 
@@ -112,8 +111,8 @@ class WidgetConfigActivity : ComponentActivity() {
                             modifier = Modifier
                                 .weight(1f)
                                 .verticalScroll(rememberScrollState())
-                                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                                .padding(horizontal = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(18.dp)
                         ) {
                             SettingsCard(title = "Layout") {
                                 LayoutChoice("Compact — value + return", WidgetAppearance.COMPACT, layout) { layout = it }
@@ -124,7 +123,7 @@ class WidgetConfigActivity : ComponentActivity() {
                                 LayoutChoice("Light / Monet", WidgetAppearance.LIGHT, theme) { theme = it }
                                 LayoutChoice("Dark Monet", WidgetAppearance.DARK, theme) { theme = it }
                                 LayoutChoice("Pitch black", WidgetAppearance.PITCH_BLACK, theme) { theme = it }
-                                Spacer(Modifier.height(6.dp))
+                                Spacer(Modifier.height(8.dp))
                                 Text("Opacity", style = MaterialTheme.typography.labelLarge)
                                 Text("${opacity.toInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 20f..100f, steps = 15)
@@ -134,10 +133,11 @@ class WidgetConfigActivity : ComponentActivity() {
                                 SettingSwitch("Today's P&L", showToday) { showToday = it }
                                 SettingSwitch("Equity + mutual fund breakdown", showBreakdown) { showBreakdown = it }
                             }
+                            Spacer(Modifier.height(6.dp))
                         }
 
                         Surface(
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
                             tonalElevation = 3.dp,
                             shadowElevation = 2.dp,
                             modifier = Modifier
@@ -179,19 +179,19 @@ class WidgetConfigActivity : ComponentActivity() {
 private fun SettingsCard(title: String, content: @Composable Column.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp)
+        shape = SettingsCornerShape
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-            content = content
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
                 title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 6.dp)
+                modifier = Modifier.padding(bottom = 4.dp)
             )
+            content()
         }
     }
 }
@@ -203,7 +203,7 @@ private fun LayoutChoice(label: String, value: String, selected: String, onSelec
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         RadioButton(selected = selected == value, onClick = { onSelected(value) })
@@ -239,7 +239,7 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Preview", style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
