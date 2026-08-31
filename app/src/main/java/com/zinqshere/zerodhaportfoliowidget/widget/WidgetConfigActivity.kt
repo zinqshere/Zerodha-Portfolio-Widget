@@ -40,12 +40,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = true
+
         appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
             setResult(Activity.RESULT_CANCELED)
@@ -68,8 +75,13 @@ class WidgetConfigActivity : ComponentActivity() {
             var showBreakdown by remember { mutableStateOf(initialBreakdown) }
             var showChart by remember { mutableStateOf(initialChart) }
 
+            val previewColors = previewColors(theme)
+
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier = Modifier
@@ -86,9 +98,15 @@ class WidgetConfigActivity : ComponentActivity() {
                                 "Customize this widget. Other widgets can use different settings.",
                                 style = MaterialTheme.typography.bodyMedium
                             )
-
-                            Spacer(Modifier.height(14.dp))
-                            WidgetPreview(theme, opacity, layout, showToday, showBreakdown, showChart)
+                            Spacer(Modifier.height(16.dp))
+                            WidgetPreview(
+                                theme = theme,
+                                opacity = opacity,
+                                layout = layout,
+                                showToday = showToday,
+                                showBreakdown = showBreakdown,
+                                showChart = showChart
+                            )
                         }
 
                         Column(
@@ -96,7 +114,7 @@ class WidgetConfigActivity : ComponentActivity() {
                                 .weight(1f)
                                 .verticalScroll(rememberScrollState())
                                 .padding(horizontal = 24.dp)
-                                .padding(bottom = 16.dp),
+                                .padding(bottom = 18.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             Card(modifier = Modifier.fillMaxWidth()) {
@@ -175,6 +193,34 @@ class WidgetConfigActivity : ComponentActivity() {
     }
 }
 
+private data class PreviewPalette(
+    val background: Color,
+    val content: Color,
+    val secondary: Color,
+    val positive: Color
+)
+
+private fun previewColors(theme: String): PreviewPalette = when (theme) {
+    WidgetAppearance.LIGHT -> PreviewPalette(
+        background = Color(0xFFF7F7F9),
+        content = Color(0xFF18171B),
+        secondary = Color(0xFF504E56),
+        positive = Color(0xFF187841)
+    )
+    WidgetAppearance.PITCH_BLACK -> PreviewPalette(
+        background = Color.Black,
+        content = Color.White,
+        secondary = Color(0xFFCDC9D3),
+        positive = Color(0xFF91EBA4)
+    )
+    else -> PreviewPalette(
+        background = Color(0xFF252329),
+        content = Color.White,
+        secondary = Color(0xFFCDC9D3),
+        positive = Color(0xFF91EBA4)
+    )
+}
+
 @Composable
 private fun LayoutChoice(label: String, value: String, selected: String, onSelected: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -201,18 +247,15 @@ private fun WidgetPreview(
     showBreakdown: Boolean,
     showChart: Boolean
 ) {
-    val background = when (theme) {
-        WidgetAppearance.LIGHT -> Color(0xFFF7F7F9)
-        WidgetAppearance.PITCH_BLACK -> Color.Black
-        else -> Color(0xFF252329)
-    }
-    val content = if (theme == WidgetAppearance.LIGHT) Color(0xFF18171B) else Color.White
-    val secondary = if (theme == WidgetAppearance.LIGHT) Color(0xFF504E56) else Color(0xFFCDC9D3)
-    val positive = if (theme == WidgetAppearance.LIGHT) Color(0xFF187841) else Color(0xFF91EBA4)
-    val alpha = opacity / 100f
+    val palette = previewColors(theme)
     val compact = layout == WidgetAppearance.COMPACT
     val dashboard = layout == WidgetAppearance.DASHBOARD
-    val showDetails = (layout == WidgetAppearance.STANDARD || dashboard || layout == WidgetAppearance.AUTO) && !compact
+    val showDetails = !compact
+    val cardHeight = when {
+        compact -> 112.dp
+        dashboard -> 198.dp
+        else -> 164.dp
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Preview", style = MaterialTheme.typography.labelLarge)
@@ -220,47 +263,73 @@ private fun WidgetPreview(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (compact) 116.dp else if (dashboard) 188.dp else 148.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(background.copy(alpha = alpha))
-                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .height(cardHeight)
+                .clip(RoundedCornerShape(24.dp))
+                .background(palette.background.copy(alpha = opacity / 100f))
+                .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "Zerodha Portfolio",
-                        color = content,
+                        color = palette.content,
                         modifier = Modifier.weight(1f),
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleSmall
                     )
-                    Text("↻", color = positive, style = MaterialTheme.typography.titleMedium)
+                    Text("↻", color = palette.positive, style = MaterialTheme.typography.titleMedium)
                 }
                 Text(
                     "₹12,45,820",
-                    color = content,
+                    color = palette.content,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text("+₹1,84,230  +17.35%", color = positive, fontWeight = FontWeight.Bold)
+                Text(
+                    "+₹1,84,230   +17.35%",
+                    color = palette.positive,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
+                )
 
                 if (showToday && showDetails) {
-                    Text("Today", color = secondary, style = MaterialTheme.typography.labelSmall)
-                    Text("+₹4,280  +0.34%", color = positive, style = MaterialTheme.typography.bodySmall)
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Today", color = palette.secondary, style = MaterialTheme.typography.labelMedium)
+                            Text("+₹4,280", color = palette.positive, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text("+0.34%", color = palette.positive, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
 
                 if (showChart && dashboard) {
-                    Text("╱╲╱╲╱╲╱╱", color = Color(0xFF9C8CFF), style = MaterialTheme.typography.titleMedium)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp)
+                            .background(Color.Transparent)
+                    ) {
+                        Text("╱╲╱╲╱╲╱╱", color = Color(0xFF9C8CFF), style = MaterialTheme.typography.titleMedium)
+                    }
                 }
 
                 if (showBreakdown && showDetails) {
-                    Text(
-                        "Equity   ₹8.72L   +17.88%     Mutual Funds   ₹3.73L   +16.13%",
-                        color = content,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Equity", color = palette.secondary, style = MaterialTheme.typography.labelMedium)
+                            Text("₹8.72L", color = palette.content, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            Text("+17.88%", color = palette.positive, style = MaterialTheme.typography.labelMedium)
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Mutual Funds", color = palette.secondary, style = MaterialTheme.typography.labelMedium)
+                            Text("₹3.73L", color = palette.content, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            Text("+16.13%", color = palette.positive, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
-                Spacer(Modifier.weight(1f, fill = false))
-                Text("Updated 2 min ago", color = secondary, style = MaterialTheme.typography.labelSmall)
+
+                Spacer(Modifier.weight(1f))
+                Text("Updated 2 min ago", color = palette.secondary, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
