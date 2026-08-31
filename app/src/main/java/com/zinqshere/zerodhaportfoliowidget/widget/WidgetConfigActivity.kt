@@ -24,9 +24,11 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,8 +56,8 @@ class WidgetConfigActivity : ComponentActivity() {
         val initialOpacity = WidgetAppearance.opacity(this, appWidgetId)
 
         setContent {
-            var theme by mutableStateOf(initialTheme)
-            var opacity by mutableFloatStateOf(initialOpacity.toFloat())
+            var theme by remember { mutableStateOf(initialTheme) }
+            var opacity by remember { mutableFloatStateOf(initialOpacity.toFloat()) }
 
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -120,7 +122,7 @@ class WidgetConfigActivity : ComponentActivity() {
     }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun ThemeChoice(
     label: String,
     value: String,
@@ -137,7 +139,7 @@ private fun ThemeChoice(
     }
 }
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun Preview(theme: String, opacity: Float) {
     val background = when (theme) {
         WidgetAppearance.LIGHT -> Color(0xFFF7F7F9)
