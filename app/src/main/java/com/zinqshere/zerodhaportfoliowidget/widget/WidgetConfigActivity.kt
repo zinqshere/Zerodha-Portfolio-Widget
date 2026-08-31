@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,7 +100,8 @@ class WidgetConfigActivity : ComponentActivity() {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 20.dp, start = 24.dp, end = 24.dp)
+                                .statusBarsPadding()
+                                .padding(top = 12.dp, start = 24.dp, end = 24.dp)
                         ) {
                             Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
@@ -148,7 +151,9 @@ class WidgetConfigActivity : ComponentActivity() {
                         Surface(
                             color = MaterialTheme.colorScheme.surface,
                             tonalElevation = 3.dp,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
                         ) {
                             Button(
                                 onClick = {
