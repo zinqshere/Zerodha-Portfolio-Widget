@@ -2,23 +2,26 @@
 
 Android home-screen portfolio widget for a personal Zerodha account.
 
-## v0.2.0
+## v0.3.0
 
 - Live Kite holdings through Kite Connect.
-- Cached portfolio snapshot so the widget never needs to start with a blank value.
-- Asynchronous widget refresh; tapping the widget opens the app.
+- Cache-first widget rendering so the last successful portfolio remains visible.
+- Automatic background refresh with WorkManager every 30 minutes when Android permits it.
 - Total current value, invested value, overall P&L and equity day P&L.
-- Encrypted storage for the API key and access token.
+- Encrypted storage for the API key, access token and cached portfolio.
 - Coin invested/current totals can be entered manually.
 - Coin CSV import with common invested/current-value column names.
 - One-tap link to open Coin.
+- Widget tap opens the full app.
 - GitHub Actions Android build.
 
 ## Kite authentication
 
-The current app accepts a Kite API key and access token. Zerodha's official authentication flow uses a request token plus an API secret to create an access token, and Zerodha explicitly warns that the API secret must not be embedded in a mobile application. A production-grade version should therefore add a small backend for the token exchange rather than putting the secret in the APK.
+The app currently accepts a Kite API key and access token. Zerodha's authentication flow exchanges a short-lived request token for an access token using the app secret, and the API secret must not be embedded in a mobile application. The repository intentionally does not put the secret in the APK.
 
-Kite access tokens expire at 6 AM the following day, so the app will need a new session after expiry unless a supported long-lived refresh mechanism is available for the account.
+Zerodha also states that opening the Kite mobile app for third-party authentication is a private flow for exchange-approved partner apps. This project therefore uses the supported public login flow rather than pretending to have partner-only authentication. A future backend can perform the token exchange while keeping the secret server-side.
+
+Kite access tokens are short-lived and require a new login/session when they expire.
 
 ## Coin
 
@@ -33,7 +36,6 @@ Kite Connect Personal provides portfolio/account APIs but not real-time or histo
 ## Roadmap
 
 - Backend-assisted Kite login/token exchange.
-- More robust background scheduling with WorkManager.
 - Per-fund Coin holdings and XIRR.
 - Portfolio charts and history.
 - Multiple widget sizes/designs.
