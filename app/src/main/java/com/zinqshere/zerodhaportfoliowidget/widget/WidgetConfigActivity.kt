@@ -51,7 +51,7 @@ class WidgetConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -81,20 +81,27 @@ class WidgetConfigActivity : ComponentActivity() {
             }
 
             MaterialTheme(colorScheme = colorScheme) {
-                val darkBars = theme != WidgetAppearance.LIGHT
-                val controller = remember(window) { WindowInsetsControllerCompat(window, window.decorView) }
-                controller.isAppearanceLightStatusBars = !darkBars
-                controller.isAppearanceLightNavigationBars = !darkBars
+                val view = androidx.compose.ui.platform.LocalView.current
+                val controller = remember(view, theme) {
+                    WindowInsetsControllerCompat(window, view)
+                }
+                androidx.compose.runtime.DisposableEffect(controller, theme) {
+                    controller.isAppearanceLightStatusBars = theme == WidgetAppearance.LIGHT
+                    controller.isAppearanceLightNavigationBars = theme == WidgetAppearance.LIGHT
+                    onDispose { }
+                }
 
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 20.dp)
+                                .padding(top = 20.dp, start = 24.dp, end = 24.dp)
                         ) {
                             Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
@@ -141,7 +148,11 @@ class WidgetConfigActivity : ComponentActivity() {
                             }
                         }
 
-                        Surface(tonalElevation = 3.dp) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 3.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Button(
                                 onClick = {
                                     WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, false)
