@@ -91,9 +91,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 }
 
                 Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
+                    modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -101,12 +99,12 @@ class WidgetConfigActivity : ComponentActivity() {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .statusBarsPadding()
-                                .padding(top = 12.dp, start = 24.dp, end = 24.dp)
+                                .padding(top = 8.dp, start = 24.dp, end = 24.dp)
                         ) {
                             Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text("Customize this widget. Other widgets can use different settings.", style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(14.dp))
                             WidgetPreview(theme, opacity, layout, showToday, showBreakdown)
                         }
 
@@ -114,43 +112,34 @@ class WidgetConfigActivity : ComponentActivity() {
                             modifier = Modifier
                                 .weight(1f)
                                 .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 24.dp, vertical = 4.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(18.dp)) {
-                                    Text("Layout", style = MaterialTheme.typography.titleMedium)
-                                    Spacer(Modifier.height(6.dp))
-                                    LayoutChoice("Compact — value + return", WidgetAppearance.COMPACT, layout) { layout = it }
-                                    LayoutChoice("Standard — breakdown", WidgetAppearance.STANDARD, layout) { layout = it }
-                                }
+                            SettingsCard(title = "Layout") {
+                                LayoutChoice("Compact — value + return", WidgetAppearance.COMPACT, layout) { layout = it }
+                                LayoutChoice("Standard — breakdown", WidgetAppearance.STANDARD, layout) { layout = it }
                             }
 
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(18.dp)) {
-                                    Text("Appearance", style = MaterialTheme.typography.titleMedium)
-                                    Spacer(Modifier.height(6.dp))
-                                    LayoutChoice("Light / Monet", WidgetAppearance.LIGHT, theme) { theme = it }
-                                    LayoutChoice("Dark Monet", WidgetAppearance.DARK, theme) { theme = it }
-                                    LayoutChoice("Pitch black", WidgetAppearance.PITCH_BLACK, theme) { theme = it }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text("Opacity ${opacity.toInt()}%", style = MaterialTheme.typography.bodyMedium)
-                                    Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 20f..100f, steps = 15)
-                                }
+                            SettingsCard(title = "Appearance") {
+                                LayoutChoice("Light / Monet", WidgetAppearance.LIGHT, theme) { theme = it }
+                                LayoutChoice("Dark Monet", WidgetAppearance.DARK, theme) { theme = it }
+                                LayoutChoice("Pitch black", WidgetAppearance.PITCH_BLACK, theme) { theme = it }
+                                Spacer(Modifier.height(6.dp))
+                                Text("Opacity", style = MaterialTheme.typography.labelLarge)
+                                Text("${opacity.toInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 20f..100f, steps = 15)
                             }
 
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Information", style = MaterialTheme.typography.titleMedium)
-                                    SettingSwitch("Today's P&L", showToday) { showToday = it }
-                                    SettingSwitch("Equity + mutual fund breakdown", showBreakdown) { showBreakdown = it }
-                                }
+                            SettingsCard(title = "Information") {
+                                SettingSwitch("Today's P&L", showToday) { showToday = it }
+                                SettingSwitch("Equity + mutual fund breakdown", showBreakdown) { showBreakdown = it }
                             }
                         }
 
                         Surface(
-                            color = MaterialTheme.colorScheme.surface,
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                             tonalElevation = 3.dp,
+                            shadowElevation = 2.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .navigationBarsPadding()
@@ -162,9 +151,11 @@ class WidgetConfigActivity : ComponentActivity() {
                                     PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
                                     finish()
                                 },
+                                shape = RoundedCornerShape(50),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 24.dp, vertical = 12.dp)
+                                    .height(52.dp)
                             ) { Text("Save widget") }
                         }
                     }
@@ -185,17 +176,52 @@ class WidgetConfigActivity : ComponentActivity() {
 }
 
 @Composable
+private fun SettingsCard(title: String, content: @Composable Column.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            content = content
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun LayoutChoice(label: String, value: String, selected: String, onSelected: (String) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         RadioButton(selected = selected == value, onClick = { onSelected(value) })
         Spacer(Modifier.width(8.dp))
-        Text(label)
+        Text(label, modifier = Modifier.padding(end = 12.dp))
     }
 }
 
 @Composable
 private fun SettingSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(label, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChecked)
     }
@@ -218,7 +244,7 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
             modifier = Modifier
                 .fillMaxWidth()
                 .height(cardHeight)
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(26.dp))
                 .background(palette.background.copy(alpha = opacity / 100f))
                 .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
@@ -248,7 +274,9 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                Text("Updated 2 min ago", color = palette.secondary, style = MaterialTheme.typography.labelSmall)
+                if (!compact) {
+                    Text("Updated 2 min ago", color = palette.secondary, style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
