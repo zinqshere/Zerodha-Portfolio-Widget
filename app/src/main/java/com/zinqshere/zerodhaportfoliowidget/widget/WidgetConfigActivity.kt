@@ -62,7 +62,8 @@ class WidgetConfigActivity : ComponentActivity() {
 
         val initialTheme = WidgetAppearance.theme(this, appWidgetId)
         val initialOpacity = WidgetAppearance.opacity(this, appWidgetId)
-        val initialLayout = WidgetAppearance.layout(this, appWidgetId)
+        val storedLayout = WidgetAppearance.layout(this, appWidgetId)
+        val initialLayout = if (storedLayout == WidgetAppearance.AUTO) WidgetAppearance.STANDARD else storedLayout
         val initialToday = WidgetAppearance.showToday(this, appWidgetId)
         val initialBreakdown = WidgetAppearance.showBreakdown(this, appWidgetId)
         val initialChart = WidgetAppearance.showChart(this, appWidgetId)
@@ -74,8 +75,6 @@ class WidgetConfigActivity : ComponentActivity() {
             var showToday by remember { mutableStateOf(initialToday) }
             var showBreakdown by remember { mutableStateOf(initialBreakdown) }
             var showChart by remember { mutableStateOf(initialChart) }
-
-            val previewColors = previewColors(theme)
 
             MaterialTheme {
                 Surface(
@@ -121,7 +120,6 @@ class WidgetConfigActivity : ComponentActivity() {
                                 Column(modifier = Modifier.padding(18.dp)) {
                                     Text("Layout", style = MaterialTheme.typography.titleMedium)
                                     Spacer(Modifier.height(6.dp))
-                                    LayoutChoice("Auto — adapts to widget size", WidgetAppearance.AUTO, layout) { layout = it }
                                     LayoutChoice("Compact — value + return", WidgetAppearance.COMPACT, layout) { layout = it }
                                     LayoutChoice("Standard — breakdown", WidgetAppearance.STANDARD, layout) { layout = it }
                                     LayoutChoice("Dashboard — breakdown + chart", WidgetAppearance.DASHBOARD, layout) { layout = it }
@@ -193,34 +191,6 @@ class WidgetConfigActivity : ComponentActivity() {
     }
 }
 
-private data class PreviewPalette(
-    val background: Color,
-    val content: Color,
-    val secondary: Color,
-    val positive: Color
-)
-
-private fun previewColors(theme: String): PreviewPalette = when (theme) {
-    WidgetAppearance.LIGHT -> PreviewPalette(
-        background = Color(0xFFF7F7F9),
-        content = Color(0xFF18171B),
-        secondary = Color(0xFF504E56),
-        positive = Color(0xFF187841)
-    )
-    WidgetAppearance.PITCH_BLACK -> PreviewPalette(
-        background = Color.Black,
-        content = Color.White,
-        secondary = Color(0xFFCDC9D3),
-        positive = Color(0xFF91EBA4)
-    )
-    else -> PreviewPalette(
-        background = Color(0xFF252329),
-        content = Color.White,
-        secondary = Color(0xFFCDC9D3),
-        positive = Color(0xFF91EBA4)
-    )
-}
-
 @Composable
 private fun LayoutChoice(label: String, value: String, selected: String, onSelected: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -247,15 +217,14 @@ private fun WidgetPreview(
     showBreakdown: Boolean,
     showChart: Boolean
 ) {
-    val palette = previewColors(theme)
+    val palette = when (theme) {
+        WidgetAppearance.LIGHT -> PreviewPalette(Color(0xFFF7F7F9), Color(0xFF18171B), Color(0xFF504E56), Color(0xFF187841))
+        WidgetAppearance.PITCH_BLACK -> PreviewPalette(Color.Black, Color.White, Color(0xFFCDC9D3), Color(0xFF91EBA4))
+        else -> PreviewPalette(Color(0xFF252329), Color.White, Color(0xFFCDC9D3), Color(0xFF91EBA4))
+    }
     val compact = layout == WidgetAppearance.COMPACT
     val dashboard = layout == WidgetAppearance.DASHBOARD
-    val showDetails = !compact
-    val cardHeight = when {
-        compact -> 112.dp
-        dashboard -> 198.dp
-        else -> 164.dp
-    }
+    val cardHeight = if (compact) 112.dp else if (dashboard) 206.dp else 166.dp
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Preview", style = MaterialTheme.typography.labelLarge)
@@ -268,53 +237,23 @@ private fun WidgetPreview(
                 .background(palette.background.copy(alpha = opacity / 100f))
                 .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Zerodha Portfolio",
-                        color = palette.content,
-                        modifier = Modifier.weight(1f),
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleSmall
-                    )
+                    Text("Zerodha Portfolio", color = palette.content, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                     Text("↻", color = palette.positive, style = MaterialTheme.typography.titleMedium)
                 }
-                Text(
-                    "₹12,45,820",
-                    color = palette.content,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "+₹1,84,230   +17.35%",
-                    color = palette.positive,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Text("₹12,45,820", color = palette.content, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("+₹1,84,230   +17.35%", color = palette.positive, fontWeight = FontWeight.Bold)
 
-                if (showToday && showDetails) {
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Today", color = palette.secondary, style = MaterialTheme.typography.labelMedium)
-                            Text("+₹4,280", color = palette.positive, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                            Text("+0.34%", color = palette.positive, style = MaterialTheme.typography.labelMedium)
-                        }
+                if (!compact && showToday) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Today", color = palette.secondary, style = MaterialTheme.typography.labelMedium)
+                        Text("+₹4,280   +0.34%", color = palette.positive, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
                     }
                 }
 
-                if (showChart && dashboard) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp)
-                            .background(Color.Transparent)
-                    ) {
-                        Text("╱╲╱╲╱╲╱╱", color = Color(0xFF9C8CFF), style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-
-                if (showBreakdown && showDetails) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (!compact && showBreakdown) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Equity", color = palette.secondary, style = MaterialTheme.typography.labelMedium)
                             Text("₹8.72L", color = palette.content, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
@@ -328,9 +267,20 @@ private fun WidgetPreview(
                     }
                 }
 
+                if (dashboard && showChart) {
+                    Text("╱╲╱╲╱╲╱╱", color = Color(0xFF9C8CFF), style = MaterialTheme.typography.titleMedium)
+                }
+
                 Spacer(Modifier.weight(1f))
                 Text("Updated 2 min ago", color = palette.secondary, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
 }
+
+private data class PreviewPalette(
+    val background: Color,
+    val content: Color,
+    val secondary: Color,
+    val positive: Color
+)
