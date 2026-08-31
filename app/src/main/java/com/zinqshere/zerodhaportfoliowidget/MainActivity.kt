@@ -45,6 +45,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -114,7 +116,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
     var selectedTheme by remember {
         mutableStateOf(PortfolioTheme.entries.firstOrNull { it.key == store.theme() } ?: PortfolioTheme.DARK_MONET)
     }
-    var showAppearanceDialog by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val pinSupported = remember { AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported }
@@ -126,7 +128,12 @@ private fun PortfolioScreen(store: PortfolioStore) {
                     store.saveCoin(totals.first, totals.second)
                     coinInvested = totals.first.toString()
                     coinValue = totals.second.toString()
-                    snapshot = snapshot.copy(coinInvested = totals.first, coinValue = totals.second, coinPnl = totals.second - totals.first, updatedAt = System.currentTimeMillis())
+                    snapshot = snapshot.copy(
+                        coinInvested = totals.first,
+                        coinValue = totals.second,
+                        coinPnl = totals.second - totals.first,
+                        updatedAt = System.currentTimeMillis()
+                    )
                     store.saveSnapshot(snapshot)
                     status = "Coin CSV imported"
                 }.onFailure { status = "Coin import failed: ${it.message}" }
@@ -159,11 +166,50 @@ private fun PortfolioScreen(store: PortfolioStore) {
                         Text("Zerodha Portfolio", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                         Text("Kite equity + Coin mutual funds", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(
-                        onClick = { showAppearanceDialog = true },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Appearance settings")
+                    IconButton(onClick = { showSettings = true }, modifier = Modifier.size(48.dp)) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Settings")
+                    }
+                }
+
+                DashboardCard(snapshot)
+
+                SectionCard(title = "Equity", icon = Icons.Outlined.AccountBalance) {
+                    HoldingSummary(
+                        value = snapshot.equityValue,
+                        invested = snapshot.equityInvested,
+                        pnl = snapshot.equityPnl,
+                        subtitle = "Kite holdings"
+                    )
+                }
+
+                SectionCard(title = "Mutual Funds", icon = Icons.Outlined.UploadFile) {
+                    HoldingSummary(
+                        value = snapshot.coinValue,
+                        invested = snapshot.coinInvested,
+                        pnl = snapshot.coinPnl,
+                        subtitle = "Coin mutual funds"
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) },
+                            shape = RoundedCornerShape(18.dp)
+                        ) { Text("Import CSV") }
+                        OutlinedButton(
+                            onClick = {
+                                val invested = coinInvested.toDoubleOrNull() ?: 0.0
+                                val value = coinValue.toDoubleOrNull() ?: 0.0
+                                store.saveCoin(invested, value)
+                                snapshot = snapshot.copy(
+                                    coinInvested = invested,
+                                    coinValue = value,
+                                    coinPnl = value - invested,
+                                    updatedAt = System.currentTimeMillis()
+                                )
+                                store.saveSnapshot(snapshot)
+                                status = "Coin totals saved"
+                            },
+                            shape = RoundedCornerShape(18.dp)
+                        ) { Text("Save totals") }
                     }
                 }
 
@@ -173,7 +219,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
                 ) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(Icons.Outlined.AddHome, null)
+                            Icon(Icons.Outlined.AddHome, contentDescription = null)
                             Column(Modifier.weight(1f)) {
                                 Text("Home-screen widget", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                                 Text("Place your portfolio card directly on the launcher.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -192,122 +238,199 @@ private fun PortfolioScreen(store: PortfolioStore) {
                     }
                 }
 
-                SectionCard(title = "Kite", icon = Icons.Outlined.AccountBalance) {
-                    Text("Connect securely through Kite. Your API secret stays on the backend.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(
-                        value = backendUrl,
-                        onValueChange = { backendUrl = it; kiteError = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Auth backend URL") },
-                        placeholder = { Text("https://your-backend.example.com") },
-                        singleLine = true,
-                        isError = kiteError != null,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        shape = RoundedCornerShape(18.dp)
-                    )
-                    Button(
-                        enabled = backendUrl.trim().isNotBlank(),
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(status, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(lastUpdated(snapshot.updatedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(
                         onClick = {
-                            runCatching {
-                                val value = backendUrl.trim()
-                                store.saveBackendUrl(value)
-                                KiteAuthClient.openLogin(context, value)
-                                status = "Opening Kite login…"
-                            }.onFailure { kiteError = it.message ?: "Enter a valid HTTPS backend URL" }
-                        },
-                        shape = RoundedCornerShape(18.dp)
-                    ) { Text("Connect Kite") }
-                    kiteError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    if (store.accessToken().isNotBlank()) Text("Kite session saved securely on this device.", color = Color(0xFF9DDFB2))
-                }
-
-                SectionCard(title = "Coin", icon = Icons.Outlined.UploadFile) {
-                    Text("Use manual totals or import your Coin CSV.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(coinInvested, { coinInvested = it }, Modifier.weight(1f), label = { Text("Invested") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), shape = RoundedCornerShape(18.dp))
-                        OutlinedTextField(coinValue, { coinValue = it }, Modifier.weight(1f), label = { Text("Current value") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), shape = RoundedCornerShape(18.dp))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = {
-                            val invested = coinInvested.toDoubleOrNull() ?: 0.0
-                            val value = coinValue.toDoubleOrNull() ?: 0.0
-                            store.saveCoin(invested, value)
-                            snapshot = snapshot.copy(coinInvested = invested, coinValue = value, coinPnl = value - invested, updatedAt = System.currentTimeMillis())
-                            store.saveSnapshot(snapshot)
-                            status = "Coin totals saved"
-                        }, shape = RoundedCornerShape(18.dp)) { Text("Save") }
-                        OutlinedButton(onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) }, shape = RoundedCornerShape(18.dp)) { Text("Import CSV") }
-                    }
-                    OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://coin.zerodha.com"))) }, shape = RoundedCornerShape(18.dp)) { Text("Open Coin") }
-                }
-
-                SectionCard(title = "Portfolio") {
-                    Text(money(snapshot.totalValue), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        Metric("Invested", money(snapshot.totalInvested))
-                        Metric("P&L", money(snapshot.totalPnl))
-                        Metric("Day P&L", money(snapshot.equityDayPnl))
-                    }
-                    HorizontalDivider()
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(status, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        FilledTonalButton(onClick = {
                             scope.launch {
                                 status = "Refreshing Kite…"
                                 runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
-                                    .onSuccess { snapshot = it; status = "Updated just now" }
-                                    .onFailure { status = it.message ?: "Refresh failed" }
+                                    .onSuccess { snapshot = it; status = "Kite connected" }
+                                    .onFailure { status = refreshError(it.message) }
                             }
-                        }, shape = RoundedCornerShape(18.dp)) {
-                            Icon(Icons.Outlined.Refresh, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Refresh")
-                        }
+                        },
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Refresh")
                     }
                 }
             }
         }
 
-        if (showAppearanceDialog) {
-            AlertDialog(
-                onDismissRequest = { showAppearanceDialog = false },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Outlined.DarkMode, contentDescription = null)
-                        Text("Appearance")
-                    }
+        if (showSettings) {
+            SettingsDialog(
+                selectedTheme = selectedTheme,
+                onThemeSelected = {
+                    selectedTheme = it
+                    store.saveTheme(it.key)
                 },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Choose the look that fits your device and wallpaper.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        PortfolioTheme.entries.forEach { theme ->
-                            val selected = selectedTheme == theme
-                            OutlinedButton(
-                                onClick = {
-                                    selectedTheme = theme
-                                    store.saveTheme(theme.key)
-                                    showAppearanceDialog = false
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(theme.label, modifier = Modifier.weight(1f))
-                                    if (selected) Icon(Icons.Outlined.Settings, contentDescription = "Selected")
-                                }
-                            }
-                        }
-                    }
+                backendUrl = backendUrl,
+                onBackendUrlChange = { backendUrl = it; kiteError = null },
+                kiteConnected = store.accessToken().isNotBlank(),
+                kiteError = kiteError,
+                onConnectKite = {
+                    runCatching {
+                        val value = backendUrl.trim()
+                        require(value.isNotBlank()) { "Enter a backend URL" }
+                        store.saveBackendUrl(value)
+                        KiteAuthClient.openLogin(context, value)
+                        status = "Opening Kite login…"
+                    }.onFailure { kiteError = it.message ?: "Enter a valid backend URL" }
                 },
-                confirmButton = {
-                    TextButton(onClick = { showAppearanceDialog = false }) { Text("Done") }
-                }
+                onImportCoin = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) },
+                onOpenCoin = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://coin.zerodha.com"))) },
+                onAddWidget = {
+                    val manager = AppWidgetManager.getInstance(context)
+                    val provider = ComponentName(context, PortfolioWidgetReceiver::class.java)
+                    manager.requestPinAppWidget(provider, null, null)
+                },
+                pinSupported = pinSupported,
+                onDismiss = { showSettings = false }
             )
         }
     }
+}
+
+@Composable
+private fun DashboardCard(snapshot: com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot) {
+    val pnlPercent = percentage(snapshot.totalInvested, snapshot.totalPnl)
+    val dayPnl = snapshot.equityDayPnl
+    ElevatedCard(
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Total Portfolio", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(money(snapshot.totalValue), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                MetricWithPercent("P&L", snapshot.totalPnl, pnlPercent)
+                Metric("Invested", money(snapshot.totalInvested))
+            }
+            HorizontalDivider()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Today", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(money(dayPnl), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                }
+                Text(
+                    "Equity + MF",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HoldingSummary(value: Double, invested: Double, pnl: Double, subtitle: String) {
+    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(money(value), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+        Metric("Invested", money(invested))
+        MetricWithPercent("P&L", pnl, percentage(invested, pnl))
+    }
+}
+
+@Composable
+private fun MetricWithPercent(label: String, value: Double, percent: Double) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(money(value), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(formatPercent(percent), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun SettingsDialog(
+    selectedTheme: PortfolioTheme,
+    onThemeSelected: (PortfolioTheme) -> Unit,
+    backendUrl: String,
+    onBackendUrlChange: (String) -> Unit,
+    kiteConnected: Boolean,
+    kiteError: String?,
+    onConnectKite: () -> Unit,
+    onImportCoin: () -> Unit,
+    onOpenCoin: () -> Unit,
+    onAddWidget: () -> Unit,
+    pinSupported: Boolean,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Outlined.Settings, contentDescription = null)
+                Text("Settings")
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Choose the look that fits your device and wallpaper.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PortfolioTheme.entries.forEach { theme ->
+                    val selected = selectedTheme == theme
+                    OutlinedButton(
+                        onClick = { onThemeSelected(theme) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(theme.label, modifier = Modifier.weight(1f))
+                            if (selected) Text("✓", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+                Text("Kite", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (kiteConnected) "Kite session is saved on this device." else "Kite is not connected.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = backendUrl,
+                    onValueChange = onBackendUrlChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Auth backend URL") },
+                    singleLine = true,
+                    isError = kiteError != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    shape = RoundedCornerShape(18.dp)
+                )
+                Button(onClick = onConnectKite, shape = RoundedCornerShape(18.dp)) { Text("Connect Kite") }
+                kiteError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+                HorizontalDivider()
+                Text("Coin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = onImportCoin, shape = RoundedCornerShape(18.dp)) { Text("Import CSV") }
+                    OutlinedButton(onClick = onOpenCoin, shape = RoundedCornerShape(18.dp)) { Text("Open Coin") }
+                }
+
+                HorizontalDivider()
+                Text("Home-screen widget", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                OutlinedButton(
+                    onClick = onAddWidget,
+                    enabled = pinSupported,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp)
+                ) { Text("Add widget to home screen") }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } }
+    )
 }
 
 private fun pitchBlackScheme() = darkColorScheme(
@@ -337,11 +460,18 @@ private fun darkMonetFallbackScheme() = darkColorScheme(
 )
 
 @Composable
-private fun SectionCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, content: @Composable ColumnScope.() -> Unit) {
-    ElevatedCard(shape = RoundedCornerShape(28.dp), colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+private fun SectionCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    ElevatedCard(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (icon != null) Icon(icon, null)
+                if (icon != null) Icon(icon, contentDescription = null)
                 Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             }
             content()
@@ -356,6 +486,24 @@ private fun Metric(label: String, value: String) {
         Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
     }
 }
+
+private fun percentage(invested: Double, pnl: Double): Double =
+    if (invested == 0.0) 0.0 else (pnl / invested) * 100.0
+
+private fun formatPercent(value: Double): String =
+    String.format(Locale.getDefault(), "%+.2f%%", value)
+
+private fun lastUpdated(timestamp: Long): String =
+    if (timestamp <= 0L) "No portfolio update yet"
+    else "Updated ${SimpleDateFormat("d MMM, h:mm a", Locale.getDefault()).format(Date(timestamp))}"
+
+private fun refreshError(message: String?): String =
+    when {
+        message.isNullOrBlank() -> "Refresh failed"
+        message.contains("401") || message.contains("403") || message.contains("unauthorized", ignoreCase = true) -> "Kite session expired — reconnect in Settings"
+        message.contains("timeout", ignoreCase = true) || message.contains("network", ignoreCase = true) -> "Network error — try again"
+        else -> "Refresh failed: $message"
+    }
 
 private fun parseCoinCsv(context: android.content.Context, uri: Uri): Pair<Double, Double> {
     val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("Could not read file")
