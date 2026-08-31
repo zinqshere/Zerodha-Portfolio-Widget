@@ -23,17 +23,23 @@ class PortfolioStore(context: Context) {
     fun coinValue() = Double.fromBits(prefs.getLong("coin_value", 0L))
 
     fun saveSnapshot(s: PortfolioSnapshot) = prefs.edit()
-        .putLong("total_value", s.totalValue.toBits())
-        .putLong("total_invested", s.totalInvested.toBits())
-        .putLong("total_pnl", s.totalPnl.toBits())
-        .putLong("day_pnl", s.equityDayPnl.toBits())
+        .putLong("equity_value", s.equityValue.toBits())
+        .putLong("equity_invested", s.equityInvested.toBits())
+        .putLong("equity_pnl", s.equityPnl.toBits())
+        .putLong("equity_day_pnl", s.equityDayPnl.toBits())
+        .putLong("coin_value", s.coinValue.toBits())
+        .putLong("coin_invested", s.coinInvested.toBits())
+        .putLong("coin_pnl", s.coinPnl.toBits())
         .putLong("updated_at", s.updatedAt).apply()
 
     fun cachedSnapshot() = PortfolioSnapshot(
-        equityValue = prefs.getLong("total_value", 0L).let { Double.fromBits(it) },
-        equityInvested = prefs.getLong("total_invested", 0L).let { Double.fromBits(it) },
-        equityPnl = prefs.getLong("total_pnl", 0L).let { Double.fromBits(it) },
-        equityDayPnl = prefs.getLong("day_pnl", 0L).let { Double.fromBits(it) },
+        equityValue = Double.fromBits(prefs.getLong("equity_value", 0L)),
+        equityInvested = Double.fromBits(prefs.getLong("equity_invested", 0L)),
+        equityPnl = Double.fromBits(prefs.getLong("equity_pnl", 0L)),
+        equityDayPnl = Double.fromBits(prefs.getLong("equity_day_pnl", 0L)),
+        coinValue = Double.fromBits(prefs.getLong("coin_value", 0L)),
+        coinInvested = Double.fromBits(prefs.getLong("coin_invested", 0L)),
+        coinPnl = Double.fromBits(prefs.getLong("coin_pnl", 0L)),
         updatedAt = prefs.getLong("updated_at", 0L)
     )
 }
