@@ -1,310 +1,355 @@
 # Zerodha Portfolio Widget
 
-A personal Android portfolio viewer and home-screen widget for **Zerodha Kite equity holdings** and **Coin mutual-fund holdings**.
+An Android home-screen portfolio widget for viewing your **Zerodha Kite equity holdings** and **Coin mutual-fund holdings** in one place.
 
-The project is designed for quick portfolio checks without opening a brokerage app. The Android app handles the UI and widget configuration, while the optional backend handles the sensitive Kite authentication flow so the Kite API secret is not embedded in the APK.
+The app is designed to give you a quick portfolio view without repeatedly opening Zerodha. Your Kite API secret stays on the backend; the Android app only uses the authentication flow and portfolio data it needs.
 
-> **Project status:** Active development. Zerodha/Kite access and Coin functionality depend on the backend configuration and credentials available to the deployment.
-
----
-
-## Contents
-
-- [Features](#features)
-- [How it works](#how-it-works)
-- [Requirements](#requirements)
-- [User setup](#user-setup)
-- [Kite backend setup](#kite-backend-setup)
-- [Coin setup](#coin-setup)
-- [Home-screen widgets](#home-screen-widgets)
-- [Widget settings](#widget-settings)
-- [Building the Android app](#building-the-android-app)
-- [Release and update compatibility](#release-and-update-compatibility)
-- [Security](#security)
-- [Troubleshooting](#troubleshooting)
-- [Development](#development)
-- [Disclaimer](#disclaimer)
+> **Important:** This project is an independent portfolio viewer and is not affiliated with or endorsed by Zerodha.
 
 ---
 
-## Features
+## What you get
 
-### Portfolio
-
-- Live Kite equity holdings through Kite Connect.
-- Portfolio current value, invested value and overall P&L.
-- Equity day P&L when supplied by the Kite holdings data.
-- Combined portfolio presentation for equity and mutual funds.
-- Last-updated information so stale data is visible.
-- Cache-first rendering so the widget can display the last successful portfolio snapshot while a refresh is unavailable.
-- Encrypted local storage for the Kite session and cached portfolio data.
-
-### Zerodha authentication
-
-- Backend-assisted Kite login.
-- Kite API secret stays on the server instead of being packaged into the Android application.
-- Short-lived callback-code exchange between the backend and Android app.
-- The backend performs the server-side Kite token/checksum exchange.
-
-### Coin mutual funds
-
-The app supports the project's Coin portfolio flow for bringing mutual-fund totals into the combined portfolio. The exact Coin source depends on the current backend implementation/configuration.
-
-The project does **not** scrape Coin passwords or rely on undocumented private Coin endpoints. Where the current implementation requires an import/manual source, use the supported flow exposed by the app/backend.
-
-### Home-screen widget
-
-- Multiple Zerodha Portfolio widgets can be placed on the launcher.
-- Each widget has its **own configuration**.
-- Compact and Standard layouts.
-- Light / Monet, Dark Monet and Pitch Black appearances.
+- Zerodha Kite equity portfolio value and returns.
+- Coin mutual-fund value and returns when the supported Coin data flow is configured.
+- Combined equity + mutual-fund portfolio view.
+- Today's P&L where available.
+- Last-updated information.
+- Secure backend-assisted Kite login.
+- Multiple home-screen widgets.
+- Independent settings for every widget.
+- **Compact** and **Standard** widget layouts.
+- **Light / Monet**, **Dark Monet**, and **Pitch Black** widget themes.
 - Adjustable widget opacity.
-- Optional Today's P&L.
-- Optional equity + mutual-fund breakdown.
-- Direct refresh action.
-- Tap interaction to open the app.
-- Responsive rendering for different launcher widget dimensions.
-- Configuration screen with a live preview.
-
-### UI
-
-- Material 3 based Android interface.
-- Widget configuration is vertically scrollable on small screens.
-- The configuration screen follows the app/device light or dark appearance.
-- Status and navigation bars follow the active appearance rather than being permanently forced to light or dark.
-- The main app keeps widget configuration out of the primary portfolio screen.
+- Optional Today's P&L and equity/mutual-fund breakdown.
+- Widget refresh action.
+- Live widget preview while configuring a widget.
+- Cache-first widget display so the last successful portfolio snapshot can remain visible when a refresh is temporarily unavailable.
+- Encrypted local storage for the supported Kite session and portfolio cache.
 
 ---
 
-## How it works
+# Setup
 
-The high-level architecture is:
+There are three things you need:
 
-```text
-                         HTTPS
-Android app  ------------------------------>  Vercel / backend
-     |                                             |
-     |                                             | Kite OAuth/API
-     |                                             v
-     |                                         Zerodha Kite
-     |
-     +---- Home-screen widget
-```
+1. A **Zerodha account**.
+2. A **Kite Connect application** with its API key and API secret.
+3. A **Vercel backend deployment** that handles the Kite authentication securely.
 
-The Android app does not need the private Kite API secret. Instead:
-
-1. The user starts **Connect Kite** in the Android app.
-2. The app sends the user through the configured backend.
-3. The backend redirects to Zerodha/Kite for authorization.
-4. Kite returns an authorization/request token to the backend callback.
-5. The backend performs the server-side token/checksum exchange.
-6. The backend returns a short-lived encrypted callback code to the Android app.
-7. The Android app exchanges that code and stores the resulting session securely.
-8. Portfolio data is fetched and cached for the app/widget.
-
-Kite access tokens expire at approximately 6 AM the following day, so a new supported authorization flow may be required after expiry.
+You do **not** put the Kite API secret into the Android app.
 
 ---
 
-## Requirements
+# Part 1 — Create your Kite Connect application
 
-### For normal use
+## 1. Open the Kite developer portal
 
-- Android device with home-screen widget support.
-- Zerodha account.
-- Kite Connect application/API access for the configured integration.
-- A deployed and working backend URL.
-- Coin data source/configuration if mutual-fund data is required.
+Sign in to Zerodha and open the **Kite Connect developer console**.
 
-### For development
+Create a new Kite Connect application according to your Zerodha/Kite account's available plan and access.
 
-- Git.
-- Android Studio.
-- Android SDK compatible with the repository's Gradle configuration.
-- The JDK version required by the repository's Gradle/CI configuration.
-- A Zerodha Kite Connect developer application.
-- Vercel or another compatible Node/serverless host for the backend.
+You will receive:
 
-Use the versions declared by the project and GitHub Actions rather than arbitrarily changing Gradle, Kotlin, Android Gradle Plugin or JDK versions.
+- **API key** — this identifies your Kite application.
+- **API secret** — this is private and must never be exposed publicly.
 
----
+Keep the API secret somewhere secure. You will enter it only as a Vercel environment variable.
 
-# User setup
+## 2. Decide your callback URL
 
-## 1. Install the Android app
-
-Install a successful release APK produced by the repository's GitHub Actions workflow, or build the application locally.
-
-For a release APK, always use a build that completed successfully in CI. Do not install an APK from a failed workflow run.
-
-## 2. Deploy/configure the backend
-
-The Android app needs the public HTTPS URL of the authentication backend.
-
-In the app's Zerodha/Kite section, enter the backend URL and use **Connect Kite**.
-
-The backend URL should look like:
+Your authentication flow uses the following Android callback URI:
 
 ```text
-https://your-project.vercel.app
+zerodhaportfolio://oauth
 ```
 
-Do not put `KITE_API_SECRET` or any other private credential into the Android app.
+This is the URI that returns control from the backend to the Android app after authentication.
 
-## 3. Connect Kite
-
-1. Open the app.
-2. Open the Kite connection/settings area.
-3. Enter the configured **Auth backend URL**.
-4. Tap **Connect Kite**.
-5. Complete the Zerodha authorization page.
-6. Return to the app through the configured callback flow.
-7. Wait for the portfolio to load.
-
-If authorization succeeds, the Android app stores the resulting session using encrypted local storage.
-
-## 4. Configure Coin
-
-Use the Coin flow supported by the current backend/app deployment to make your mutual-fund data available.
-
-The combined portfolio can then present:
-
-- Equity value
-- Mutual-fund value
-- Combined total
-- Corresponding returns where supported by the current data source
-
-Do not upload credentials or private account data to an untrusted third-party service.
-
-## 5. Add a widget
-
-From your Android launcher:
-
-1. Long-press an empty area of the home screen.
-2. Tap **Widgets**.
-3. Find **Zerodha Portfolio Widget**.
-4. Drag it onto the home screen.
-5. Complete the widget settings screen.
-6. Choose **Compact** or **Standard**.
-7. Choose the appearance.
-8. Set opacity if desired.
-9. Choose whether to show Today's P&L.
-10. Choose whether to show the equity + mutual-fund breakdown.
-11. Tap **Save widget**.
-
-Repeat the process to create additional widgets. Settings are stored independently for each widget.
-
----
-
-# Kite backend setup
-
-The backend lives in the repository's `backend/` directory and is intended to be deployed to a Node/serverless platform such as Vercel.
-
-## 1. Create a Kite Connect application
-
-Create/configure your application in the Zerodha Kite developer portal and obtain the application API key and API secret.
-
-Keep the API secret private.
-
-## 2. Deploy `backend/`
-
-Deploy the repository's `backend/` directory to Vercel or another compatible Node/serverless host.
-
-Configure the required environment variables in the hosting provider's secret/environment-variable settings.
-
-The current backend expects the following variables:
-
-| Variable | Purpose |
-|---|---|
-| `KITE_API_KEY` | Public Kite API key used by the backend |
-| `KITE_API_SECRET` | Private Kite API secret; server-side only |
-| `KITE_CODE_KEY` | 64 hexadecimal characters used as the 32-byte encryption key for callback codes |
-| `APP_REDIRECT_URI` | Android callback URI used by the authentication flow |
-
-Example:
-
-```text
-KITE_API_KEY=your_kite_api_key
-KITE_API_SECRET=your_kite_api_secret
-KITE_CODE_KEY=<64 random hexadecimal characters>
-APP_REDIRECT_URI=zerodhaportfolio://oauth
-```
-
-**Do not copy these example values into production.**
-
-## 3. Generate `KITE_CODE_KEY`
-
-Generate 32 random bytes and encode them as 64 hexadecimal characters.
-
-For example, on a machine with OpenSSL:
-
-```bash
-openssl rand -hex 32
-```
-
-Put the result into the Vercel environment variable `KITE_CODE_KEY`.
-
-## 4. Configure the Kite redirect URL
-
-If the deployed backend is:
-
-```text
-https://your-project.vercel.app
-```
-
-then the Kite developer application should use the backend's callback endpoint:
+Your Kite developer application's registered redirect URL, however, should point to the **backend callback endpoint**, for example:
 
 ```text
 https://your-project.vercel.app/api/kite/callback
 ```
 
-The exact redirect URL must match the backend configuration.
+Do not register the Android `zerodhaportfolio://oauth` URI as the Kite web redirect if your backend is the component receiving the Kite callback.
 
-## 5. Configure the Android app
+---
 
-Enter the backend's public base URL in the Android app:
+# Part 2 — Deploy the Vercel backend
+
+The repository contains a `backend/` directory. This is the server-side part of the application that protects your Kite API secret and performs the Kite authentication exchange.
+
+The flow is:
+
+```text
+Android app
+    │
+    │ Connect Kite
+    ▼
+Vercel backend
+    │
+    │ OAuth
+    ▼
+Zerodha Kite
+    │
+    │ callback
+    ▼
+Vercel backend
+    │
+    │ encrypted short-lived code
+    ▼
+Android app
+```
+
+## 1. Create a Vercel account
+
+Create/sign in to your Vercel account and create a new project from this repository.
+
+When configuring the project, make sure the deployment uses the repository's **`backend/` directory** as the backend project/root where required by your Vercel setup.
+
+After deployment, Vercel will give you a public HTTPS address such as:
 
 ```text
 https://your-project.vercel.app
 ```
 
-Then press **Connect Kite**.
+This is your **Auth backend URL**.
 
-### Security model
+## 2. Add the environment variables
 
-The Android APK contains the public API key only when required by the integration; the private API secret remains in the backend environment. The backend performs the sensitive Kite exchange.
+Open your Vercel project and go to its **Environment Variables** settings.
+
+Add these variables:
+
+| Variable | What to enter |
+|---|---|
+| `KITE_API_KEY` | Your Kite Connect API key |
+| `KITE_API_SECRET` | Your private Kite Connect API secret |
+| `KITE_CODE_KEY` | A 32-byte random encryption key represented by 64 hexadecimal characters |
+| `APP_REDIRECT_URI` | `zerodhaportfolio://oauth` |
+
+Example:
+
+```text
+KITE_API_KEY=your_api_key
+KITE_API_SECRET=your_private_api_secret
+KITE_CODE_KEY=64_hexadecimal_characters
+APP_REDIRECT_URI=zerodhaportfolio://oauth
+```
+
+**Do not use these example values literally.**
+
+### Generate `KITE_CODE_KEY`
+
+You need exactly **64 hexadecimal characters** representing 32 random bytes.
+
+If OpenSSL is available on your computer:
+
+```bash
+openssl rand -hex 32
+```
+
+Copy the generated value into `KITE_CODE_KEY` in Vercel.
+
+Do not post this key publicly and do not commit it to the repository.
+
+## 3. Redeploy after adding variables
+
+After adding or changing environment variables, redeploy the Vercel project so the running backend receives the new values.
+
+## 4. Register the Vercel callback in Kite
+
+Take your Vercel domain and append the backend callback path:
+
+```text
+https://your-project.vercel.app/api/kite/callback
+```
+
+Register that **exact URL** as the redirect/callback URL in your Kite Connect application.
+
+For example:
+
+```text
+Vercel backend:
+https://my-portfolio.vercel.app
+
+Kite callback:
+https://my-portfolio.vercel.app/api/kite/callback
+```
+
+The callback URL configured in Kite must match the URL your backend expects.
 
 ---
 
-# Coin setup
+# Part 3 — Connect the Android app
 
-Coin mutual-fund data is separate from the Kite equity holdings API.
+## 1. Open the app
 
-The project intentionally avoids storing or scraping Coin login credentials and private undocumented endpoints.
+Install and open the Zerodha Portfolio Widget app.
 
-Depending on the current backend implementation, Coin data may be supplied through the supported import/synchronization flow. The resulting mutual-fund totals can then be included in the combined portfolio and widget breakdown.
+## 2. Open Settings
 
-If Coin values are missing, verify the backend's Coin configuration and the data source used by the deployment before changing Android widget settings.
+Open the app's **Settings** from the top-right corner.
+
+## 3. Enter your Auth backend URL
+
+In the Kite/Zerodha connection section, enter the Vercel URL **without the callback path**.
+
+For example:
+
+```text
+https://my-portfolio.vercel.app
+```
+
+Do not enter:
+
+```text
+https://my-portfolio.vercel.app/api/kite/callback
+```
+
+The app needs the **base backend URL** because it knows which backend authentication endpoints to call.
+
+## 4. Connect Kite
+
+Tap **Connect Kite** / **Connect Zerodha**.
+
+A Zerodha authorization page will open.
+
+Sign in and authorize your Kite application.
+
+After authorization:
+
+1. Kite sends the callback to your Vercel backend.
+2. The backend performs the sensitive token/checksum exchange.
+3. The backend creates the short-lived encrypted callback code.
+4. The Android app receives the callback.
+5. The app exchanges the code with the backend.
+6. The resulting Kite session is stored using the app's encrypted local storage.
+7. The portfolio is refreshed.
+
+The private `KITE_API_SECRET` is never supposed to be stored in the Android APK.
 
 ---
 
-# Home-screen widgets
+# Kite API setup — important details
 
-## Supported layouts
+## API key vs API secret
 
-### Compact
+### API key
 
-Designed for a small widget footprint. It prioritizes the most important information:
+The API key identifies your Kite Connect application.
 
-- Zerodha Portfolio label
+### API secret
+
+The API secret is private. Treat it like a password.
+
+**Never:**
+
+- Put it in Kotlin/Java source code.
+- Put it in Android resources.
+- Put it in a public `.env` file.
+- Put it in the Git repository.
+- Put it in screenshots or documentation.
+- Enter it into the Android app's backend URL field.
+
+The intended setup is:
+
+```text
+KITE_API_SECRET
+      │
+      ▼
+Vercel Environment Variables
+      │
+      ▼
+Backend
+```
+
+## Kite login expiry
+
+Kite access tokens are short-lived and normally expire at the broker's daily token-expiry time. When the session expires, complete the supported Kite authorization flow again from the app.
+
+If the app says that the Kite session is no longer valid, reconnect Kite rather than entering your API secret into the Android application.
+
+## Kite portfolio data
+
+The app uses the portfolio/holdings information available through the configured Kite integration. Current portfolio values can therefore depend on the data returned by Kite at refresh time.
+
+---
+
+# Coin mutual-fund setup
+
+The combined portfolio can include your Coin mutual funds when the supported Coin data flow is configured.
+
+The project deliberately does **not** ask you to give the Android app your Coin password or scrape undocumented/private Coin endpoints.
+
+Depending on the current backend/data implementation, Coin information is obtained through the supported synchronization/import flow available to the deployment.
+
+Once Coin data is available, the app can show the combined:
+
+- Equity value
+- Mutual-fund value
+- Total portfolio value
+- Supported P&L/return information
+
+If your Coin values are missing, first check that the backend's Coin data source/synchronization has completed successfully. Changing widget settings cannot create missing Coin data.
+
+---
+
+# Add the home-screen widget
+
+After Kite is connected and portfolio data is available:
+
+1. Long-press an empty area of your Android home screen.
+2. Select **Widgets**.
+3. Find **Zerodha Portfolio Widget**.
+4. Drag it onto the home screen.
+5. The **Widget settings** page will open.
+6. Use the preview to check the appearance.
+7. Choose a layout:
+   - **Compact — value + return**
+   - **Standard — breakdown**
+8. Choose an appearance:
+   - **Light / Monet**
+   - **Dark Monet**
+   - **Pitch black**
+9. Adjust opacity if desired.
+10. Choose which portfolio information should be visible.
+11. Tap **Save widget**.
+
+You can add multiple widgets. Every widget can have its **own layout, theme, opacity and information settings**.
+
+For example:
+
+```text
+Widget 1 → Compact + Pitch black
+Widget 2 → Standard + Dark Monet
+Widget 3 → Standard + Light / Monet
+```
+
+Changing one widget does not change the others.
+
+---
+
+# Widget layouts
+
+## Compact
+
+Best for a small space.
+
+It prioritizes:
+
+- Portfolio name
 - Total portfolio value
 - Overall P&L
 - Overall return percentage
 - Refresh action
 
-### Standard
+## Standard
 
-Designed for a larger widget footprint. It can show:
+Best for a larger widget.
+
+It can show:
 
 - Total portfolio value
 - Overall P&L
@@ -315,32 +360,42 @@ Designed for a larger widget footprint. It can show:
 - Last-updated information
 - Refresh action
 
-The current settings page intentionally exposes only **Compact** and **Standard**. Older development versions had additional layout values; these are migrated to a supported layout rather than shown to users.
+---
 
-## Multiple widgets
+# Widget appearance
 
-Each Android widget instance has an independent configuration.
+Each widget can use a different appearance.
 
-For example:
+### Light / Monet
 
-```text
-Widget 1 -> Compact + Pitch Black
-Widget 2 -> Standard + Dark Monet
-Widget 3 -> Standard + Light / Monet
-```
+A light Material-style appearance that works well with light wallpapers and Android's dynamic colors where supported.
 
-Changing Widget 1 does not automatically change Widget 2 or Widget 3.
+### Dark Monet
+
+A dark Material-style appearance that uses the device's dynamic color system where supported.
+
+### Pitch black
+
+Uses pure black surfaces and is intended for OLED-friendly viewing.
+
+### Opacity
+
+The widget opacity can be adjusted from the widget settings page.
 
 ---
 
 # Widget settings
 
-The widget configuration page contains:
+The widget settings page provides:
+
+### Preview
+
+A live preview shows how the widget will look before you save it.
 
 ### Layout
 
-- Compact — value + return
-- Standard — breakdown
+- Compact
+- Standard
 
 ### Appearance
 
@@ -348,121 +403,28 @@ The widget configuration page contains:
 - Dark Monet
 - Pitch black
 
-### Opacity
-
-Adjust the widget surface opacity from 20% to 100%.
-
 ### Information
 
-- Today's P&L — show/hide day performance.
-- Equity + mutual-fund breakdown — show/hide the two portfolio components.
+Depending on the current widget configuration, you can enable or disable:
 
-The page contains a live widget preview and is vertically scrollable so all settings remain accessible on smaller phones.
+- Today's P&L
+- Equity + mutual-fund breakdown
 
-The **Save widget** action remains accessible at the bottom of the configuration screen.
+### Per-widget configuration
 
----
-
-# Building the Android app
-
-## Clone the repository
-
-```bash
-git clone https://github.com/zinqshere/Zerodha-Portfolio-Widget.git
-cd Zerodha-Portfolio-Widget
-```
-
-## Open in Android Studio
-
-Open the repository root in Android Studio and allow Gradle to synchronize.
-
-Do not commit generated build output, local environment files, signing keys or secrets.
-
-## Build with Gradle
-
-Use the Gradle wrapper included in the repository.
-
-For a standard release task:
-
-```bash
-./gradlew assembleRelease
-```
-
-If the repository's GitHub Actions workflow uses a module-specific task, use that exact task when reproducing CI locally.
-
-For a debug build, use the debug task defined by the project's Gradle modules.
-
-## GitHub Actions
-
-The repository uses GitHub Actions to validate and build Android releases.
-
-A release should be considered ready only when the workflow:
-
-1. Compiles successfully.
-2. Passes the configured checks.
-3. Validates the signing configuration.
-4. Produces the release APK artifact.
-5. Completes any APK/signature verification steps configured by CI.
+Settings belong to the individual widget. Multiple widgets can therefore have different configurations while using the same portfolio account.
 
 ---
 
-# Release and update compatibility
+# Refreshing your portfolio
 
-If an existing installation should update without requiring uninstall/reinstall, Android must recognize the new APK as the same application.
+The app and widget can refresh the portfolio using the configured backend/Kite session.
 
-Keep all of the following stable:
+The widget also keeps the last successful snapshot so that temporary network/backend restrictions do not necessarily leave the widget empty.
 
-- **Application ID / package name**
-- **Release signing key**
+Android may delay background work because of battery optimization and other system restrictions. A background refresh is therefore not guaranteed to happen at an exact minute.
 
-Also ensure that the new release has a higher Android `versionCode` than the installed version.
-
-Changing the application ID or signing key can cause Android to treat the APK as a different application and can require uninstalling the previous installation.
-
-### Signing secrets
-
-Never commit the following to GitHub:
-
-- Keystore files
-- Keystore passwords
-- Key aliases and private signing material when they are intended to remain secret
-- Kite API secrets
-- OAuth access tokens
-- Production `.env` files
-
-Use GitHub Actions secrets for CI signing credentials and Vercel environment variables for backend credentials.
-
----
-
-# Security
-
-This application handles financial-account information. Treat all portfolio data and credentials as sensitive.
-
-### Never commit
-
-```text
-.env
-.env.*
-*.jks
-*.keystore
-KITE_API_SECRET
-access tokens
-real account credentials
-```
-
-### Backend rules
-
-- Keep `KITE_API_SECRET` server-side.
-- Use HTTPS in production.
-- Use a strong random `KITE_CODE_KEY`.
-- Do not log access tokens or API secrets.
-- Do not expose production environment variables to the Android client.
-
-### Android rules
-
-- Do not hard-code private credentials in Kotlin/Java/resources.
-- Keep the local Kite session in the project's encrypted storage mechanism.
-- Avoid logging personal portfolio information unnecessarily.
+If the displayed data is old, open the app and use the available **Refresh** action. If your Kite session has expired, reconnect Kite first.
 
 ---
 
@@ -470,127 +432,104 @@ real account credentials
 
 ## “Can't load widget”
 
-If Android shows **Can't load widget**:
+If Android displays **Can't load widget**:
 
-1. Remove the existing widget from the home screen.
-2. Install the latest **successful** release APK.
-3. Restart the launcher/device if necessary.
+1. Remove the widget from the home screen.
+2. Make sure the app itself opens normally.
+3. Install the latest available app version.
 4. Add the widget again.
-5. Complete its configuration.
+5. Complete its configuration and tap **Save widget**.
 
-If the error continues, inspect the Android launcher exception and the GitHub Actions build logs. Widget failures are commonly caused by unsupported `RemoteViews` operations, missing resources, invalid widget-provider metadata, or a build that does not contain the latest widget code.
+If the widget still cannot load, restart the Android launcher/device and try again.
 
-## Widget shows old settings
+## “Kite connection failed”
 
-Each physical widget has its own saved configuration. Reconfigure that specific widget or remove and add it again.
+Check all of these:
 
-## Kite login does not work
+- The Vercel backend URL is correct.
+- You entered the **base URL**, not `/api/kite/callback`, in the Android app.
+- The Vercel deployment is running.
+- `KITE_API_KEY` is correct.
+- `KITE_API_SECRET` is correct.
+- `KITE_CODE_KEY` is present and contains 64 hexadecimal characters.
+- `APP_REDIRECT_URI` is exactly `zerodhaportfolio://oauth`.
+- The Kite developer application's callback is exactly:
 
-Check:
+```text
+https://YOUR-DOMAIN/api/kite/callback
+```
 
-- The backend URL is correct.
-- The backend is deployed and healthy.
-- `KITE_API_KEY` and `KITE_API_SECRET` are configured on the backend.
-- `KITE_CODE_KEY` is present and valid.
-- `APP_REDIRECT_URI` matches the Android callback configuration.
-- The Kite developer application's registered callback matches the backend callback URL exactly.
-- The authorization flow is using HTTPS in production.
+- The callback URL points to the same Vercel deployment entered in the app.
+- You have completed the Zerodha authorization flow.
 
-## Portfolio data is stale
+## “Invalid redirect URI” from Zerodha
 
-The widget uses cached data when necessary and background refresh is subject to Android's background-execution rules. Open the app and trigger a supported refresh/authentication flow if the cache is old.
+The most common cause is a mismatch between the callback URL registered in Kite and the actual Vercel backend URL.
 
-The project currently uses WorkManager for periodic background refresh; Android may defer scheduled work depending on battery, background and system conditions.
+For a backend hosted at:
 
-## Coin data is missing
+```text
+https://my-portfolio.vercel.app
+```
 
-Verify that the supported Coin import/synchronization flow has completed successfully and that the backend is configured for the Coin data source used by your deployment.
+register:
 
-Changing the widget layout cannot create missing portfolio data.
+```text
+https://my-portfolio.vercel.app/api/kite/callback
+```
 
-## Release APK will not update an existing installation
+Do not add a trailing slash unless the backend and Kite configuration both explicitly use it.
 
-Check:
+## Coin mutual funds are not showing
 
-- Same application ID/package name.
-- Same release signing key.
-- Higher `versionCode`.
-- Correct release variant.
-- CI is using the intended signing secrets.
+Verify that the supported Coin synchronization/import flow has completed and that your backend deployment has access to the required Coin data source.
 
-If the signing key has changed, Android will normally reject the APK as an update.
+Kite equity authentication alone does not automatically guarantee that every Coin mutual-fund field is available.
 
----
+## Widget shows old data
 
-# Development
+Try a manual refresh from the app or widget.
 
-## Recommended workflow
+If the Kite token has expired, reconnect Kite.
 
-1. Create a feature branch.
-2. Make a focused change.
-3. Run the relevant Gradle checks/build.
-4. Test UI changes on an Android device or emulator.
-5. For widget changes, add, resize, refresh and remove/re-add a real widget.
-6. Verify both light and dark appearance.
-7. Verify a fresh install and an in-place update when changing release/signing configuration.
-8. Open a pull request or merge the tested change into `main`.
+Also remember that Android can defer background refreshes.
 
-## Widget testing checklist
+## Widget looks different from the preview
 
-Whenever the widget implementation changes, test:
-
-- Compact layout.
-- Standard layout.
-- Light / Monet appearance.
-- Dark Monet appearance.
-- Pitch black appearance.
-- Different opacity values.
-- Today's P&L enabled and disabled.
-- Equity/mutual-fund breakdown enabled and disabled.
-- Multiple widgets with different configurations.
-- Widget refresh.
-- Widget resizing.
-- Removing and re-adding the widget.
-- App update without uninstalling.
-- Launcher behavior after device restart.
+The Android launcher controls the physical widget dimensions and can apply its own padding or corner treatment. Try resizing the widget and re-saving its configuration.
 
 ---
 
-# Project principles
+# Security checklist
 
-- **Glanceable:** important portfolio numbers should be readable immediately.
-- **Informative:** show useful value, return and breakdown information without opening the full app.
-- **Up-to-date:** make the last successful update visible.
-- **Consistent:** widget styling follows the selected appearance.
-- **Interactive:** refresh and useful navigation actions should remain simple.
-- **Secure:** private Zerodha credentials belong on the backend, not inside the APK.
-- **Update-safe:** releases should preserve the application identity and signing key so users can update normally.
+Before using the app with a real account, verify:
 
----
+- [ ] `KITE_API_SECRET` exists only in the secure Vercel environment.
+- [ ] `KITE_CODE_KEY` exists only in the secure Vercel environment.
+- [ ] No real Kite credentials are committed to the repository.
+- [ ] The backend is accessed through HTTPS.
+- [ ] The Kite callback URL points to your own backend deployment.
+- [ ] The Android app contains only the backend URL and does not contain your private Kite API secret.
+- [ ] You do not share access tokens, callback codes or screenshots containing sensitive account information.
 
-# Roadmap
-
-Potential future improvements include:
-
-- More detailed per-fund Coin holdings.
-- XIRR and fund-level performance.
-- Portfolio history and charts.
-- Additional widget sizes/layout refinements.
-- More robust multi-user backend authorization.
-- Further launcher-specific widget compatibility testing.
+If you accidentally expose your Kite API secret, rotate/revoke it through the appropriate Zerodha/Kite developer controls immediately.
 
 ---
 
-# License
+# Privacy and data handling
 
-Check the repository for a `LICENSE` file for the applicable license. If no license file is present, the project should be treated as **all rights reserved** until an explicit license is added.
+The app needs access to portfolio information in order to display it.
+
+The intended architecture keeps the private Kite API secret on the backend and stores the supported Android session/cache using encrypted local storage.
+
+Use a Vercel account and backend deployment that you control or trust. Do not enter your financial credentials into an unknown backend URL.
 
 ---
 
 # Disclaimer
 
-This is an independent personal portfolio-viewing project and is **not affiliated with, sponsored by, or endorsed by Zerodha**.
+This application is a portfolio-viewing tool. It is **not investment advice**, a trading system, or a recommendation to buy or sell securities.
 
-Zerodha, Kite and Coin are trademarks of their respective owners.
+Zerodha, Kite and Coin are trademarks/brands of their respective owners. This project is independent and is not affiliated with or endorsed by Zerodha unless explicitly stated by the project owner.
 
-This application is a portfolio viewer, not a trading system or investment-advisory service. Portfolio values and returns depend on the data supplied by the configured Zerodha/backend integration. Do not use this application as the sole source for investment or trading decisions.
+Always verify important portfolio information directly with Zerodha before making financial decisions.
