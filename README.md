@@ -2,44 +2,56 @@
 
 Android home-screen portfolio widget for a personal Zerodha account.
 
-## v0.3.0
+## v0.4.0
 
 - Live Kite holdings through Kite Connect.
-- Cache-first widget rendering so the last successful portfolio remains visible.
+- Cache-first widget rendering.
 - Automatic background refresh with WorkManager every 30 minutes when Android permits it.
 - Total current value, invested value, overall P&L and equity day P&L.
-- Encrypted storage for the API key, access token and cached portfolio.
-- Coin invested/current totals can be entered manually.
-- Coin CSV import with common invested/current-value column names.
+- Encrypted local storage for the Kite session and portfolio cache.
+- **Backend-assisted Kite login**: the API secret stays server-side.
+- Coin invested/current totals can be entered manually or imported from CSV.
 - One-tap link to open Coin.
 - Widget tap opens the full app.
-- GitHub Actions Android build.
 
-## Kite authentication
+## Kite login backend
 
-The app currently accepts a Kite API key and access token. Zerodha's authentication flow exchanges a short-lived request token for an access token using the app secret, and the API secret must not be embedded in a mobile application. The repository intentionally does not put the secret in the APK.
+Zerodha's official Kite Connect documentation requires a remote backend for mobile/desktop applications so the `api_secret` is never embedded in the app. The backend in `backend/` implements that handshake: Kite login → request token → server-side checksum/token exchange → encrypted short-lived callback code → Android exchange. citeturn1search0turn1search2
 
-Zerodha also states that opening the Kite mobile app for third-party authentication is a private flow for exchange-approved partner apps. This project therefore uses the supported public login flow rather than pretending to have partner-only authentication. A future backend can perform the token exchange while keeping the secret server-side.
+### Deploy the backend
 
-Kite access tokens are short-lived and require a new login/session when they expire.
+Deploy the `backend/` directory to a Node serverless host such as Vercel. Configure:
+
+- `KITE_API_KEY` — your public Kite API key
+- `KITE_API_SECRET` — your private Kite API secret
+- `KITE_CODE_KEY` — 64 random hexadecimal characters (32 bytes)
+- `APP_REDIRECT_URI` — `zerodhaportfolio://oauth`
+
+In the Kite Connect developer console, set the registered redirect URL to:
+
+`https://YOUR-BACKEND-DOMAIN/api/kite/callback`
+
+Then enter `https://YOUR-BACKEND-DOMAIN` in the Android app and press **Connect Kite**.
+
+The Android app never receives or stores the API secret. The access token is returned through an encrypted, short-lived callback code and stored locally using Android encrypted preferences. Kite access tokens expire at 6 AM the following day, so the user must complete the supported login flow again after expiry. citeturn1search0
+
+> **Important:** Do not commit `.env` files, API secrets, or real access tokens.
 
 ## Coin
 
-Zerodha documents viewing mutual-fund investments and details in Coin, including invested amount, current value, P&L, XIRR, NAV and units. The public Kite API does not expose the Coin portfolio as a separate Coin API. This project therefore avoids scraping Coin credentials or private endpoints.
-
-If you export a Coin/portfolio CSV containing columns such as `Invested Amount` and `Current Amount`, use **Import CSV** in the app. The importer aggregates those columns into the widget's Coin total.
+Zerodha documents mutual-fund portfolio information such as invested amount, current value, P&L, XIRR, NAV and units in Coin. This project deliberately avoids scraping Coin credentials or private endpoints. Coin can currently be represented through manual totals or CSV import.
 
 ## Important limitation
 
-Kite Connect Personal provides portfolio/account APIs but not real-time or historical market data. The current equity value is based on the `last_price` returned by the holdings endpoint. For richer real-time pricing, a market-data source would be required.
+Kite Connect Personal provides portfolio/account APIs but does not by itself provide real-time or historical market data for this app. The current equity value uses the `last_price` available from the holdings response.
 
 ## Roadmap
 
-- Backend-assisted Kite login/token exchange.
 - Per-fund Coin holdings and XIRR.
 - Portfolio charts and history.
 - Multiple widget sizes/designs.
 - Signed release APK/AAB workflow.
+- More robust one-time backend authorization codes for multi-user deployments.
 
 ## Disclaimer
 
