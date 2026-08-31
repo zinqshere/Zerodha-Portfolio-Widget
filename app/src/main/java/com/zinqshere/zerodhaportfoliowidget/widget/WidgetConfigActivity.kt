@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,15 +78,10 @@ class WidgetConfigActivity : ComponentActivity() {
             var showChart by remember { mutableStateOf(initialChart) }
 
             MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 20.dp)
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)
                         ) {
                             Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
@@ -221,7 +217,7 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
 }
 
 @Composable
-private fun PreviewMetric(label: String, value: String, pnl: String, palette: PreviewPalette) {
+private fun RowScope.PreviewMetric(label: String, value: String, pnl: String, palette: PreviewPalette) {
     Column(modifier = Modifier.weight(1f)) {
         Text(label, color = palette.secondary, style = MaterialTheme.typography.labelMedium)
         Text(value, color = palette.content, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
