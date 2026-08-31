@@ -2,15 +2,14 @@ package com.zinqshere.zerodhaportfoliowidget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,10 +18,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AddHome
-import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,6 +57,7 @@ private enum class PortfolioTheme(val key: String, val label: String) {
 
 class MainActivity : ComponentActivity() {
     private lateinit var store: PortfolioStore
+    private var authVersion by mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
         store = PortfolioStore(this)
         handleAuthIntent(intent)
         scheduleRefresh(this)
-        setContent { PortfolioScreen(store) }
+        setContent { PortfolioScreen(store, authVersion) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -82,15 +82,22 @@ class MainActivity : ComponentActivity() {
         val backend = store.backendUrl()
         if (backend.isBlank()) return
         lifecycleScope.launch {
-            runCatching { withContext(Dispatchers.IO) { KiteAuthClient.exchangeCode(backend, code) } }
-                .onSuccess { (apiKey, accessToken) -> store.saveKite(apiKey, accessToken) }
+            runCatching {
+                withContext(Dispatchers.IO) { KiteAuthClient.exchangeCode(backend, code) }
+            }.onSuccess { (apiKey, accessToken) ->
+                store.saveKite(apiKey, accessToken)
+                authVersion++
+                runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
+                PortfolioWidgetReceiver.refresh(this@MainActivity)
+            }
         }
     }
 
     companion object {
-        fun scheduleRefresh(context: android.content.Context) {
+        fun scheduleRefresh(context: Context) {
             val request = PeriodicWorkRequestBuilder<PortfolioRefreshWorker>(30, TimeUnit.MINUTES)
-                .setInitialDelay(5, TimeUnit.MINUTES).build()
+                .setInitialDelay(5, TimeUnit.MINUTES)
+                .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 "portfolio-refresh", ExistingPeriodicWorkPolicy.UPDATE, request
             )
@@ -106,13 +113,13 @@ private object WindowCompat {
 }
 
 @Composable
-private fun PortfolioScreen(store: PortfolioStore) {
+private fun PortfolioScreen(store: PortfolioStore, authVersion: Int) {
     var backendUrl by remember { mutableStateOf(store.backendUrl()) }
-    var coinInvested by remember { mutableStateOf(store.coinInvested().toString().removeSuffix(".0")) }
-    var coinValue by remember { mutableStateOf(store.coinValue().toString().removeSuffix(".0")) }
-    var snapshot by remember { mutableStateOf(store.cachedSnapshot()) }
-    var status by remember { mutableStateOf(if (store.accessToken().isNotBlank()) "Kite connected" else "Kite not connected") }
-    var kiteError by remember { mutableStateOf<String?>(null) }
+    var snapshot by remember(authVersion) { mutableStateOf(store.cachedSnapshot()) }
+    var status by remember(authVersion) {
+        mutableStateOf(if (store.accessToken().isNotBlank()) "Zerodha connected" else "Zerodha not connected")
+    }
+    var connectionError by remember { mutableStateOf<String?>(null) }
     var selectedTheme by remember {
         mutableStateOf(PortfolioTheme.entries.firstOrNull { it.key == store.theme() } ?: PortfolioTheme.DARK_MONET)
     }
@@ -120,25 +127,6 @@ private fun PortfolioScreen(store: PortfolioStore) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val pinSupported = remember { AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported }
-
-    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) scope.launch {
-            runCatching { withContext(Dispatchers.IO) { parseCoinCsv(context, uri) } }
-                .onSuccess { totals ->
-                    store.saveCoin(totals.first, totals.second)
-                    coinInvested = totals.first.toString()
-                    coinValue = totals.second.toString()
-                    snapshot = snapshot.copy(
-                        coinInvested = totals.first,
-                        coinValue = totals.second,
-                        coinPnl = totals.second - totals.first,
-                        updatedAt = System.currentTimeMillis()
-                    )
-                    store.saveSnapshot(snapshot)
-                    status = "Coin CSV imported"
-                }.onFailure { status = "Coin import failed: ${it.message}" }
-        }
-    }
 
     val colorScheme = when (selectedTheme) {
         PortfolioTheme.PITCH_BLACK -> pitchBlackScheme()
@@ -178,39 +166,17 @@ private fun PortfolioScreen(store: PortfolioStore) {
                         value = snapshot.equityValue,
                         invested = snapshot.equityInvested,
                         pnl = snapshot.equityPnl,
-                        subtitle = "Kite holdings"
+                        subtitle = "Fetched automatically from Kite"
                     )
                 }
 
-                SectionCard(title = "Mutual Funds", icon = Icons.Outlined.UploadFile) {
+                SectionCard(title = "Mutual Funds", icon = Icons.Outlined.CloudSync) {
                     HoldingSummary(
                         value = snapshot.coinValue,
                         invested = snapshot.coinInvested,
                         pnl = snapshot.coinPnl,
-                        subtitle = "Coin mutual funds"
+                        subtitle = "Fetched automatically from Coin via Kite"
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(
-                            onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) },
-                            shape = RoundedCornerShape(18.dp)
-                        ) { Text("Import CSV") }
-                        OutlinedButton(
-                            onClick = {
-                                val invested = coinInvested.toDoubleOrNull() ?: 0.0
-                                val value = coinValue.toDoubleOrNull() ?: 0.0
-                                store.saveCoin(invested, value)
-                                snapshot = snapshot.copy(
-                                    coinInvested = invested,
-                                    coinValue = value,
-                                    coinPnl = value - invested,
-                                    updatedAt = System.currentTimeMillis()
-                                )
-                                store.saveSnapshot(snapshot)
-                                status = "Coin totals saved"
-                            },
-                            shape = RoundedCornerShape(18.dp)
-                        ) { Text("Save totals") }
-                    }
                 }
 
                 ElevatedCard(
@@ -246,10 +212,13 @@ private fun PortfolioScreen(store: PortfolioStore) {
                     FilledTonalButton(
                         onClick = {
                             scope.launch {
-                                status = "Refreshing Kite…"
+                                status = "Refreshing Zerodha…"
                                 runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
-                                    .onSuccess { snapshot = it; status = "Kite connected" }
-                                    .onFailure { status = refreshError(it.message) }
+                                    .onSuccess { snapshot = it; status = "Zerodha connected"; connectionError = null }
+                                    .onFailure {
+                                        connectionError = it.message
+                                        status = refreshError(it.message)
+                                    }
                             }
                         },
                         shape = RoundedCornerShape(18.dp)
@@ -258,6 +227,10 @@ private fun PortfolioScreen(store: PortfolioStore) {
                         Spacer(Modifier.width(8.dp))
                         Text("Refresh")
                     }
+                }
+
+                connectionError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -270,20 +243,30 @@ private fun PortfolioScreen(store: PortfolioStore) {
                     store.saveTheme(it.key)
                 },
                 backendUrl = backendUrl,
-                onBackendUrlChange = { backendUrl = it; kiteError = null },
-                kiteConnected = store.accessToken().isNotBlank(),
-                kiteError = kiteError,
-                onConnectKite = {
+                onBackendUrlChange = { backendUrl = it; connectionError = null },
+                connected = store.accessToken().isNotBlank(),
+                connectionError = connectionError,
+                onConnect = {
                     runCatching {
                         val value = backendUrl.trim()
                         require(value.isNotBlank()) { "Enter a backend URL" }
                         store.saveBackendUrl(value)
                         KiteAuthClient.openLogin(context, value)
-                        status = "Opening Kite login…"
-                    }.onFailure { kiteError = it.message ?: "Enter a valid backend URL" }
+                        status = "Opening Zerodha login…"
+                        connectionError = null
+                    }.onFailure { connectionError = it.message ?: "Enter a valid backend URL" }
                 },
-                onImportCoin = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) },
-                onOpenCoin = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://coin.zerodha.com"))) },
+                onRefresh = {
+                    scope.launch {
+                        status = "Refreshing Zerodha…"
+                        runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
+                            .onSuccess { snapshot = it; status = "Zerodha connected"; connectionError = null }
+                            .onFailure {
+                                connectionError = it.message
+                                status = refreshError(it.message)
+                            }
+                    }
+                },
                 onAddWidget = {
                     val manager = AppWidgetManager.getInstance(context)
                     val provider = ComponentName(context, PortfolioWidgetReceiver::class.java)
@@ -299,7 +282,6 @@ private fun PortfolioScreen(store: PortfolioStore) {
 @Composable
 private fun DashboardCard(snapshot: com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot) {
     val pnlPercent = percentage(snapshot.totalInvested, snapshot.totalPnl)
-    val dayPnl = snapshot.equityDayPnl
     ElevatedCard(
         shape = RoundedCornerShape(30.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -315,13 +297,9 @@ private fun DashboardCard(snapshot: com.zinqshere.zerodhaportfoliowidget.data.Po
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Today", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(money(dayPnl), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(money(snapshot.equityDayPnl), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 }
-                Text(
-                    "Equity + MF",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Equity + MF", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -352,11 +330,10 @@ private fun SettingsDialog(
     onThemeSelected: (PortfolioTheme) -> Unit,
     backendUrl: String,
     onBackendUrlChange: (String) -> Unit,
-    kiteConnected: Boolean,
-    kiteError: String?,
-    onConnectKite: () -> Unit,
-    onImportCoin: () -> Unit,
-    onOpenCoin: () -> Unit,
+    connected: Boolean,
+    connectionError: String?,
+    onConnect: () -> Unit,
+    onRefresh: () -> Unit,
     onAddWidget: () -> Unit,
     pinSupported: Boolean,
     onDismiss: () -> Unit
@@ -394,29 +371,54 @@ private fun SettingsDialog(
                 }
 
                 HorizontalDivider()
-                Text("Kite", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Zerodha connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (kiteConnected) "Kite session is saved on this device." else "Kite is not connected.",
+                    "One secure Kite authorization fetches both your equity holdings and Coin mutual funds. No Coin login or CSV import is required.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                ElevatedCard(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ConnectionRow("Kite equity", connected)
+                        ConnectionRow("Coin mutual funds", connected)
+                    }
+                }
+
                 OutlinedTextField(
                     value = backendUrl,
                     onValueChange = onBackendUrlChange,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Auth backend URL") },
                     singleLine = true,
-                    isError = kiteError != null,
+                    isError = connectionError != null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     shape = RoundedCornerShape(18.dp)
                 )
-                Button(onClick = onConnectKite, shape = RoundedCornerShape(18.dp)) { Text("Connect Kite") }
-                kiteError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
-                HorizontalDivider()
-                Text("Coin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = onImportCoin, shape = RoundedCornerShape(18.dp)) { Text("Import CSV") }
-                    OutlinedButton(onClick = onOpenCoin, shape = RoundedCornerShape(18.dp)) { Text("Open Coin") }
+                Button(
+                    onClick = onConnect,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Text(if (connected) "Reconnect Zerodha" else "Connect Zerodha")
+                }
+
+                OutlinedButton(
+                    onClick = onRefresh,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = connected,
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+                    Icon(Icons.Outlined.Refresh, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Fetch equity + mutual funds now")
+                }
+
+                connectionError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
                 }
 
                 HorizontalDivider()
@@ -431,6 +433,23 @@ private fun SettingsDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } }
     )
+}
+
+@Composable
+private fun ConnectionRow(label: String, connected: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(
+            if (connected) Icons.Outlined.CheckCircle else Icons.Outlined.CloudSync,
+            contentDescription = null,
+            tint = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(label, modifier = Modifier.weight(1f))
+        Text(
+            if (connected) "Ready" else "Waiting for connection",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 private fun pitchBlackScheme() = darkColorScheme(
@@ -500,48 +519,11 @@ private fun lastUpdated(timestamp: Long): String =
 private fun refreshError(message: String?): String =
     when {
         message.isNullOrBlank() -> "Refresh failed"
-        message.contains("401") || message.contains("403") || message.contains("unauthorized", ignoreCase = true) -> "Kite session expired — reconnect in Settings"
+        message.contains("401") || message.contains("403") || message.contains("unauthorized", ignoreCase = true) -> "Zerodha session expired — reconnect in Settings"
         message.contains("timeout", ignoreCase = true) || message.contains("network", ignoreCase = true) -> "Network error — try again"
         else -> "Refresh failed: $message"
     }
 
-private fun parseCoinCsv(context: android.content.Context, uri: Uri): Pair<Double, Double> {
-    val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("Could not read file")
-    val rows = text.lineSequence().filter { it.isNotBlank() }.map { parseCsvLine(it) }.toList()
-    if (rows.size < 2) error("CSV has no data rows")
-    val headers = rows.first().map { it.trim().lowercase(Locale.ROOT) }
-    fun find(vararg names: String): Int = names.firstNotNullOfOrNull { name -> headers.indexOf(name).takeIf { it >= 0 } } ?: error("Missing column: ${names.first()}")
-    val investedIndex = find("invested amount", "invested", "total invested", "investment")
-    val valueIndex = find("current amount", "current value", "current", "market value", "value")
-    var invested = 0.0
-    var value = 0.0
-    rows.drop(1).forEach { row ->
-        invested += row.getOrNull(investedIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
-        value += row.getOrNull(valueIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
-    }
-    return invested to value
-}
-
-private fun parseCsvLine(line: String): List<String> {
-    val result = mutableListOf<String>()
-    val current = StringBuilder()
-    var quoted = false
-    var i = 0
-    while (i < line.length) {
-        when (val c = line[i]) {
-            '"' -> {
-                if (quoted && i + 1 < line.length && line[i + 1] == '"') {
-                    current.append('"')
-                    i++
-                } else quoted = !quoted
-            }
-            ',' -> if (quoted) current.append(c) else { result += current.toString(); current.setLength(0) }
-            else -> current.append(c)
-        }
-        i++
-    }
-    result += current.toString()
-    return result
-}
-
-private fun money(value: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply { maximumFractionDigits = 2 }.format(value)
+private fun money(value: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply {
+    maximumFractionDigits = 2
+}.format(value)
