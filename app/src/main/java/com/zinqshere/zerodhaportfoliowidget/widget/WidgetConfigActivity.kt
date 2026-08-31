@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,19 +43,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, true)
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
-        val darkTheme = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        controller.isAppearanceLightStatusBars = !darkTheme
-        controller.isAppearanceLightNavigationBars = !darkTheme
 
         appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -69,7 +66,6 @@ class WidgetConfigActivity : ComponentActivity() {
         val initialLayout = if (storedLayout == WidgetAppearance.DASHBOARD) WidgetAppearance.STANDARD else storedLayout
         val initialToday = WidgetAppearance.showToday(this, appWidgetId)
         val initialBreakdown = WidgetAppearance.showBreakdown(this, appWidgetId)
-        val initialChart = WidgetAppearance.showChart(this, appWidgetId)
 
         setContent {
             var theme by remember { mutableStateOf(initialTheme) }
@@ -78,21 +74,40 @@ class WidgetConfigActivity : ComponentActivity() {
             var showToday by remember { mutableStateOf(initialToday) }
             var showBreakdown by remember { mutableStateOf(initialBreakdown) }
 
-            MaterialTheme {
-                val background = MaterialTheme.colorScheme.background
-                val onBackground = MaterialTheme.colorScheme.onBackground
-                Surface(modifier = Modifier.fillMaxSize(), color = background, contentColor = onBackground) {
+            val colorScheme = when (theme) {
+                WidgetAppearance.LIGHT -> appLightScheme()
+                WidgetAppearance.PITCH_BLACK -> appPitchBlackScheme()
+                else -> appDarkMonetScheme()
+            }
+
+            MaterialTheme(colorScheme = colorScheme) {
+                val darkBars = theme != WidgetAppearance.LIGHT
+                val controller = remember(window) { WindowInsetsControllerCompat(window, window.decorView) }
+                controller.isAppearanceLightStatusBars = !darkBars
+                controller.isAppearanceLightNavigationBars = !darkBars
+
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 20.dp)
+                        ) {
                             Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text("Customize this widget. Other widgets can use different settings.", style = MaterialTheme.typography.bodyMedium)
                             Spacer(Modifier.height(16.dp))
-                            WidgetPreview(theme, opacity, layout, showToday, showBreakdown, false)
+                            WidgetPreview(theme, opacity, layout, showToday, showBreakdown)
                         }
 
                         Column(
-                            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 24.dp, vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             Card(modifier = Modifier.fillMaxWidth()) {
@@ -126,19 +141,32 @@ class WidgetConfigActivity : ComponentActivity() {
                             }
                         }
 
-                        Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
-                            Button(onClick = {
-                                WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, false)
-                                setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-                                PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
-                                finish()
-                            }, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) { Text("Save widget") }
+                        Surface(tonalElevation = 3.dp) {
+                            Button(
+                                onClick = {
+                                    WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, false)
+                                    setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+                                    PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
+                                    finish()
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)
+                            ) { Text("Save widget") }
                         }
                     }
                 }
             }
         }
     }
+
+    private fun appLightScheme() = androidx.compose.material3.lightColorScheme()
+
+    private fun appDarkMonetScheme() = androidx.compose.material3.darkColorScheme()
+
+    private fun appPitchBlackScheme() = androidx.compose.material3.darkColorScheme(
+        background = Color.Black,
+        surface = Color.Black,
+        surfaceVariant = Color(0xFF161616)
+    )
 }
 
 @Composable
@@ -159,7 +187,7 @@ private fun SettingSwitch(label: String, checked: Boolean, onChecked: (Boolean) 
 }
 
 @Composable
-private fun WidgetPreview(theme: String, opacity: Float, layout: String, showToday: Boolean, showBreakdown: Boolean, showChart: Boolean) {
+private fun WidgetPreview(theme: String, opacity: Float, layout: String, showToday: Boolean, showBreakdown: Boolean) {
     val palette = when (theme) {
         WidgetAppearance.LIGHT -> PreviewPalette(Color(0xFFF7F7F9), Color(0xFF18171B), Color(0xFF504E56), Color(0xFF187841))
         WidgetAppearance.PITCH_BLACK -> PreviewPalette(Color.Black, Color.White, Color(0xFFCDC9D3), Color(0xFF91EBA4))
@@ -171,7 +199,14 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Preview", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
-        Box(modifier = Modifier.fillMaxWidth().height(cardHeight).clip(RoundedCornerShape(24.dp)).background(palette.background.copy(alpha = opacity / 100f)).padding(horizontal = 18.dp, vertical = 14.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(cardHeight)
+                .clip(RoundedCornerShape(24.dp))
+                .background(palette.background.copy(alpha = opacity / 100f))
+                .padding(horizontal = 18.dp, vertical = 14.dp)
+        ) {
             Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Zerodha Portfolio", color = palette.content, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
