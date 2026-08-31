@@ -1,0 +1,10 @@
+# Local Android/Gradle
+.gradle/
+build/
+**/build/
+local.properties
+
+# Release signing material
+*.keystore
+*.jks
+*.p12
