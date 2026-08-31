@@ -1,5 +1,7 @@
 package com.zinqshere.zerodhaportfoliowidget
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -25,6 +27,7 @@ import com.zinqshere.zerodhaportfoliowidget.data.KiteAuthClient
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRefreshWorker
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRepository
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioStore
+import com.zinqshere.zerodhaportfoliowidget.widget.PortfolioWidgetReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,6 +86,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
     var kiteError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val pinSupported = remember { AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported }
 
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -103,6 +107,26 @@ private fun PortfolioScreen(store: PortfolioStore) {
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Home-screen widget", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (pinSupported) "Add the portfolio widget directly from this app. Your launcher will ask you to confirm the placement."
+                        else "Your current launcher does not support one-tap widget placement. Use Home screen → Widgets → Zerodha Portfolio Widget.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Button(
+                        enabled = pinSupported,
+                        onClick = {
+                            val manager = AppWidgetManager.getInstance(context)
+                            val provider = ComponentName(context, PortfolioWidgetReceiver::class.java)
+                            manager.requestPinAppWidget(provider, null, null)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Add widget to home screen") }
+                }
+            }
+
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Kite", style = MaterialTheme.typography.titleMedium)
                     Text("Connect through the supported Kite login flow. Your API secret stays on the backend and never enters this app.", style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(backendUrl, { backendUrl = it; kiteError = null }, Modifier.fillMaxWidth(), label = { Text("Auth backend URL") }, placeholder = { Text("https://your-backend.example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), isError = kiteError != null)
@@ -115,16 +139,11 @@ private fun PortfolioScreen(store: PortfolioStore) {
                                 KiteAuthClient.openLogin(context, value)
                                 status = "Opening Kite login…"
                                 kiteError = null
-                            }.onFailure {
-                                kiteError = it.message ?: "Enter a valid HTTPS backend URL"
-                            }
+                            }.onFailure { kiteError = it.message ?: "Enter a valid HTTPS backend URL" }
                         }
                     ) { Text("Connect Kite") }
-                    if (kiteError != null) {
-                        Text(kiteError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    } else if (backendUrl.isBlank()) {
-                        Text("Enter your deployed auth backend URL first. The app cannot start the Kite login until the backend is configured.", style = MaterialTheme.typography.bodySmall)
-                    }
+                    if (kiteError != null) Text(kiteError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    else if (backendUrl.isBlank()) Text("Enter your deployed auth backend URL first. The app cannot start the Kite login until the backend is configured.", style = MaterialTheme.typography.bodySmall)
                     if (store.accessToken().isNotBlank()) Text("Kite session saved securely on this device.", style = MaterialTheme.typography.bodySmall)
                 }
             }
