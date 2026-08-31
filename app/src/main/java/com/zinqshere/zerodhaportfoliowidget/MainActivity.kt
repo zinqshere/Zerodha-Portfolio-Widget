@@ -14,13 +14,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.zinqshere.zerodhaportfoliowidget.data.KiteAuthClient
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRefreshWorker
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRepository
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot
@@ -33,10 +33,28 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+    private lateinit var store: PortfolioStore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        store = PortfolioStore(this)
+        handleAuthIntent(intent)
         scheduleRefresh(this)
-        setContent { PortfolioScreen(PortfolioStore(this)) }
+        setContent { PortfolioScreen(store) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAuthIntent(intent)
+    }
+
+    private fun handleAuthIntent(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "zerodhaportfolio" || uri.host != "oauth") return
+        val accessToken = uri.getQueryParameter("access_token") ?: return
+        val apiKey = uri.getQueryParameter("api_key") ?: return
+        store.saveKite(apiKey, accessToken)
     }
 
     companion object {
@@ -52,12 +70,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun PortfolioScreen(store: PortfolioStore) {
-    var apiKey by remember { mutableStateOf(store.apiKey()) }
-    var accessToken by remember { mutableStateOf(store.accessToken()) }
+    var backendUrl by remember { mutableStateOf(store.backendUrl()) }
     var coinInvested by remember { mutableStateOf(store.coinInvested().toString().removeSuffix(".0")) }
     var coinValue by remember { mutableStateOf(store.coinValue().toString().removeSuffix(".0")) }
     var snapshot by remember { mutableStateOf(store.cachedSnapshot()) }
-    var status by remember { mutableStateOf(if (snapshot.updatedAt > 0) "Last cached portfolio loaded" else "Not connected") }
+    var status by remember { mutableStateOf(if (store.accessToken().isNotBlank()) "Kite connected" else "Kite not connected") }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -81,10 +98,24 @@ private fun PortfolioScreen(store: PortfolioStore) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Kite", style = MaterialTheme.typography.titleMedium)
-                    Text("This MVP accepts a generated Kite access token. Zerodha's mobile-app authentication flow is restricted to exchange-approved partner apps, so we don't pretend to provide that private flow.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text("API key") }, singleLine = true)
-                    OutlinedTextField(accessToken, { accessToken = it }, Modifier.fillMaxWidth(), label = { Text("Access token") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-                    Button(onClick = { store.saveKite(apiKey.trim(), accessToken.trim()); status = "Kite credentials saved" }) { Text("Save Kite") }
+                    Text("Connect through the supported Kite login flow. Your API secret stays on the backend and never enters this app.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = backendUrl,
+                        onValueChange = { backendUrl = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Auth backend URL") },
+                        placeholder = { Text("https://your-backend.example.com") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+                    )
+                    Button(onClick = {
+                        runCatching {
+                            store.saveBackendUrl(backendUrl)
+                            KiteAuthClient.openLogin(context, backendUrl)
+                            status = "Opening Kite login…"
+                        }.onFailure { status = it.message ?: "Invalid backend URL" }
+                    }) { Text("Connect Kite") }
+                    if (store.accessToken().isNotBlank()) Text("Kite session saved securely on this device.", style = MaterialTheme.typography.bodySmall)
                 }
             }
 
@@ -119,7 +150,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
                         scope.launch {
                             status = "Refreshing Kite…"
                             runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
-                                .onSuccess { snapshot = it; store.saveSnapshot(it); status = "Updated just now" }
+                                .onSuccess { snapshot = it; status = "Updated just now" }
                                 .onFailure { status = it.message ?: "Refresh failed" }
                         }
                     }) { Text("Refresh now") }
