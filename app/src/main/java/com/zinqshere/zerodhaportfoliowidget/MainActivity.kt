@@ -5,18 +5,29 @@ import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.AddHome
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
@@ -40,6 +51,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.configure(this)
+        enableEdgeToEdge()
         store = PortfolioStore(this)
         handleAuthIntent(intent)
         scheduleRefresh(this)
@@ -61,7 +74,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { KiteAuthClient.exchangeCode(backend, code) } }
                 .onSuccess { (apiKey, accessToken) -> store.saveKite(apiKey, accessToken) }
-            setIntent(Intent(this@MainActivity, MainActivity::class.java))
         }
     }
 
@@ -73,6 +85,13 @@ class MainActivity : ComponentActivity() {
                 "portfolio-refresh", ExistingPeriodicWorkPolicy.UPDATE, request
             )
         }
+    }
+}
+
+private object WindowCompat {
+    fun configure(activity: ComponentActivity) {
+        activity.window.statusBarColor = Color.Transparent.value.toInt()
+        activity.window.navigationBarColor = Color.Transparent.value.toInt()
     }
 }
 
@@ -93,99 +112,165 @@ private fun PortfolioScreen(store: PortfolioStore) {
             runCatching { withContext(Dispatchers.IO) { parseCoinCsv(context, uri) } }
                 .onSuccess { totals ->
                     store.saveCoin(totals.first, totals.second)
-                    coinInvested = totals.first.toString(); coinValue = totals.second.toString()
+                    coinInvested = totals.first.toString()
+                    coinValue = totals.second.toString()
                     snapshot = snapshot.copy(coinInvested = totals.first, coinValue = totals.second, coinPnl = totals.second - totals.first, updatedAt = System.currentTimeMillis())
-                    store.saveSnapshot(snapshot); status = "Coin CSV imported"
+                    store.saveSnapshot(snapshot)
+                    status = "Coin CSV imported"
                 }.onFailure { status = "Coin import failed: ${it.message}" }
         }
     }
 
-    MaterialTheme {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Zerodha Portfolio Widget", style = MaterialTheme.typography.headlineSmall)
-            Text("Kite equity + Coin mutual funds", style = MaterialTheme.typography.bodyMedium)
+    val darkScheme = darkColorScheme(
+        primary = Color(0xFFBCA7FF),
+        onPrimary = Color(0xFF2A0059),
+        secondary = Color(0xFFD6BEE8),
+        tertiary = Color(0xFFFFB0CA),
+        background = Color(0xFF0B0B0F),
+        surface = Color(0xFF141419),
+        surfaceVariant = Color(0xFF202027),
+        onBackground = Color(0xFFE7E1E8),
+        onSurface = Color(0xFFE7E1E8),
+        onSurfaceVariant = Color(0xFFC7BEC9)
+    )
 
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Home-screen widget", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (pinSupported) "Add the portfolio widget directly from this app. Your launcher will ask you to confirm the placement."
-                        else "Your current launcher does not support one-tap widget placement. Use Home screen → Widgets → Zerodha Portfolio Widget.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Button(
-                        enabled = pinSupported,
-                        onClick = {
-                            val manager = AppWidgetManager.getInstance(context)
-                            val provider = ComponentName(context, PortfolioWidgetReceiver::class.java)
-                            manager.requestPinAppWidget(provider, null, null)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Add widget to home screen") }
+    MaterialTheme(colorScheme = darkScheme) {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Zerodha Portfolio", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Kite equity + Coin mutual funds", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
 
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Kite", style = MaterialTheme.typography.titleMedium)
-                    Text("Connect through the supported Kite login flow. Your API secret stays on the backend and never enters this app.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(backendUrl, { backendUrl = it; kiteError = null }, Modifier.fillMaxWidth(), label = { Text("Auth backend URL") }, placeholder = { Text("https://your-backend.example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), isError = kiteError != null)
+                ElevatedCard(
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Outlined.AddHome, null)
+                            Column(Modifier.weight(1f)) {
+                                Text("Home-screen widget", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                                Text("Place your portfolio card directly on the launcher.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Button(
+                            enabled = pinSupported,
+                            onClick = {
+                                val manager = AppWidgetManager.getInstance(context)
+                                val provider = ComponentName(context, PortfolioWidgetReceiver::class.java)
+                                manager.requestPinAppWidget(provider, null, null)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
+                        ) { Text("Add widget to home screen") }
+                    }
+                }
+
+                SectionCard(title = "Kite", icon = Icons.Outlined.AccountBalance) {
+                    Text("Connect securely through Kite. Your API secret stays on the backend.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(
+                        value = backendUrl,
+                        onValueChange = { backendUrl = it; kiteError = null },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Auth backend URL") },
+                        placeholder = { Text("https://your-backend.example.com") },
+                        singleLine = true,
+                        isError = kiteError != null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        shape = RoundedCornerShape(18.dp)
+                    )
                     Button(
                         enabled = backendUrl.trim().isNotBlank(),
                         onClick = {
-                            val value = backendUrl.trim()
                             runCatching {
+                                val value = backendUrl.trim()
                                 store.saveBackendUrl(value)
                                 KiteAuthClient.openLogin(context, value)
                                 status = "Opening Kite login…"
-                                kiteError = null
                             }.onFailure { kiteError = it.message ?: "Enter a valid HTTPS backend URL" }
-                        }
+                        },
+                        shape = RoundedCornerShape(18.dp)
                     ) { Text("Connect Kite") }
-                    if (kiteError != null) Text(kiteError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    else if (backendUrl.isBlank()) Text("Enter your deployed auth backend URL first. The app cannot start the Kite login until the backend is configured.", style = MaterialTheme.typography.bodySmall)
-                    if (store.accessToken().isNotBlank()) Text("Kite session saved securely on this device.", style = MaterialTheme.typography.bodySmall)
+                    kiteError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    if (store.accessToken().isNotBlank()) Text("Kite session saved securely on this device.", color = Color(0xFF9DDFB2))
                 }
-            }
 
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Coin", style = MaterialTheme.typography.titleMedium)
-                    Text("Coin is included through manual totals or CSV import; we do not scrape your Coin session.", style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(coinInvested, { coinInvested = it }, Modifier.weight(1f), label = { Text("Invested") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                        OutlinedTextField(coinValue, { coinValue = it }, Modifier.weight(1f), label = { Text("Current value") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                SectionCard(title = "Coin", icon = Icons.Outlined.UploadFile) {
+                    Text("Use manual totals or import your Coin CSV.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedTextField(coinInvested, { coinInvested = it }, Modifier.weight(1f), label = { Text("Invested") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), shape = RoundedCornerShape(18.dp))
+                        OutlinedTextField(coinValue, { coinValue = it }, Modifier.weight(1f), label = { Text("Current value") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), shape = RoundedCornerShape(18.dp))
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Button(onClick = {
-                            val invested = coinInvested.toDoubleOrNull() ?: 0.0; val value = coinValue.toDoubleOrNull() ?: 0.0
-                            store.saveCoin(invested, value); snapshot = snapshot.copy(coinInvested = invested, coinValue = value, coinPnl = value - invested, updatedAt = System.currentTimeMillis()); store.saveSnapshot(snapshot); status = "Coin totals saved"
-                        }) { Text("Save") }
-                        OutlinedButton(onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) }) { Text("Import CSV") }
+                            val invested = coinInvested.toDoubleOrNull() ?: 0.0
+                            val value = coinValue.toDoubleOrNull() ?: 0.0
+                            store.saveCoin(invested, value)
+                            snapshot = snapshot.copy(coinInvested = invested, coinValue = value, coinPnl = value - invested, updatedAt = System.currentTimeMillis())
+                            store.saveSnapshot(snapshot)
+                            status = "Coin totals saved"
+                        }, shape = RoundedCornerShape(18.dp)) { Text("Save") }
+                        OutlinedButton(onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) }, shape = RoundedCornerShape(18.dp)) { Text("Import CSV") }
                     }
-                    OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://coin.zerodha.com"))) }) { Text("Open Coin") }
+                    OutlinedButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://coin.zerodha.com"))) }, shape = RoundedCornerShape(18.dp)) { Text("Open Coin") }
                 }
-            }
 
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("Portfolio", style = MaterialTheme.typography.titleMedium)
-                    Text(money(snapshot.totalValue), style = MaterialTheme.typography.headlineMedium)
-                    Text("Invested ${money(snapshot.totalInvested)}")
-                    Text("P&L ${money(snapshot.totalPnl)}")
-                    Text("Day P&L ${money(snapshot.equityDayPnl)}")
-                    Text(status, style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = {
-                        scope.launch {
-                            status = "Refreshing Kite…"
-                            runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
-                                .onSuccess { snapshot = it; status = "Updated just now" }
-                                .onFailure { status = it.message ?: "Refresh failed" }
+                SectionCard(title = "Portfolio") {
+                    Text(money(snapshot.totalValue), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        Metric("Invested", money(snapshot.totalInvested))
+                        Metric("P&L", money(snapshot.totalPnl))
+                        Metric("Day P&L", money(snapshot.equityDayPnl))
+                    }
+                    HorizontalDivider()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(status, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        FilledTonalButton(onClick = {
+                            scope.launch {
+                                status = "Refreshing Kite…"
+                                runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
+                                    .onSuccess { snapshot = it; status = "Updated just now" }
+                                    .onFailure { status = it.message ?: "Refresh failed" }
+                            }
+                        }, shape = RoundedCornerShape(18.dp)) {
+                            Icon(Icons.Outlined.Refresh, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Refresh")
                         }
-                    }) { Text("Refresh now") }
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, content: @Composable ColumnScope.() -> Unit) {
+    ElevatedCard(shape = RoundedCornerShape(28.dp), colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (icon != null) Icon(icon, null)
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun Metric(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -197,7 +282,8 @@ private fun parseCoinCsv(context: android.content.Context, uri: Uri): Pair<Doubl
     fun find(vararg names: String): Int = names.firstNotNullOfOrNull { name -> headers.indexOf(name).takeIf { it >= 0 } } ?: error("Missing column: ${names.first()}")
     val investedIndex = find("invested amount", "invested", "total invested", "investment")
     val valueIndex = find("current amount", "current value", "current", "market value", "value")
-    var invested = 0.0; var value = 0.0
+    var invested = 0.0
+    var value = 0.0
     rows.drop(1).forEach { row ->
         invested += row.getOrNull(investedIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
         value += row.getOrNull(valueIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
@@ -213,9 +299,11 @@ private fun parseCsvLine(line: String): List<String> {
             '"' -> if (quoted && i + 1 < line.length && line[i + 1] == '"') { cell.append('"'); i++ } else quoted = !quoted
             ',' -> if (quoted) cell.append(c) else { result += cell.toString(); cell.clear() }
             else -> cell.append(c)
-        }; i++
+        }
+        i++
     }
-    result += cell.toString(); return result
+    result += cell.toString()
+    return result
 }
 
 private fun money(v: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).format(v)
