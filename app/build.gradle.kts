@@ -21,13 +21,12 @@ android {
             val keystoreFile = rootProject.file("app/release.keystore")
             val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
             val keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-            val keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
 
-            if (keystoreFile.exists() && !keystorePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()) {
+            if (keystoreFile.exists() && !keystorePassword.isNullOrBlank() && !keyAlias.isNullOrBlank()) {
                 storeFile = keystoreFile
                 storePassword = keystorePassword
                 this.keyAlias = keyAlias
-                this.keyPassword = keyPassword
+                keyPassword = keystorePassword
             }
         }
     }
