@@ -115,14 +115,14 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
 
                 views.setTextViewText(R.id.widget_value, money(s.totalValue))
                 views.setTextViewText(R.id.widget_pnl, "${signedMoney(s.totalPnl)}  ${signedPercent(percent(s.totalPnl, s.totalInvested))}")
-                views.setTextViewText(R.id.widget_today, "Today  ${signedMoney(s.equityDayPnl)}  ${signedPercent(percent(s.equityDayPnl, s.equityInvested))}")
-                views.setTextViewText(R.id.widget_equity, money(s.equityValue))
-                views.setTextViewText(R.id.widget_mf, money(s.coinValue))
+                views.setTextViewText(R.id.widget_today, "Today\n${signedMoney(s.equityDayPnl)}  ${signedPercent(percent(s.equityDayPnl, s.equityInvested))}")
+                views.setTextViewText(R.id.widget_equity, compactMoney(s.equityValue))
+                views.setTextViewText(R.id.widget_mf, compactMoney(s.coinValue))
                 views.setTextViewText(R.id.widget_equity_pnl, signedPercent(percent(s.equityPnl, s.equityInvested)))
                 views.setTextViewText(R.id.widget_mf_pnl, signedPercent(percent(s.coinPnl, s.coinInvested)))
                 views.setTextViewText(
                     R.id.widget_updated,
-                    if (s.updatedAt == 0L) "Connect Kite in app" else "Updated ${relativeTime(s.updatedAt)}"
+                    if (s.updatedAt == 0L) "Connect Zerodha in app" else "Updated ${relativeTime(s.updatedAt)}"
                 )
 
                 val compact = layout == WidgetAppearance.COMPACT
@@ -142,19 +142,26 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
 
                 val openIntent = Intent(context, MainActivity::class.java)
                 views.setOnClickPendingIntent(
-                    R.id.widget_content,
-                    PendingIntent.getActivity(
-                        context, id, openIntent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
+                    R.id.widget_value,
+                    PendingIntent.getActivity(context, id, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                 )
+                views.setOnClickPendingIntent(
+                    R.id.widget_equity,
+                    PendingIntent.getActivity(context, id + 10000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                )
+                views.setOnClickPendingIntent(
+                    R.id.widget_mf,
+                    PendingIntent.getActivity(context, id + 20000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                )
+
                 val refreshIntent = Intent(context, PortfolioWidgetReceiver::class.java).setAction(ACTION_REFRESH)
                 views.setOnClickPendingIntent(
                     R.id.widget_refresh,
-                    PendingIntent.getBroadcast(
-                        context, id + 100000, refreshIntent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
+                    PendingIntent.getBroadcast(context, id + 100000, refreshIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                )
+                views.setOnClickPendingIntent(
+                    R.id.widget_content,
+                    PendingIntent.getActivity(context, id + 30000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
                 )
                 manager.updateAppWidget(id, views)
             }
@@ -170,6 +177,16 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
 
         private fun money(value: Double): String =
             NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply { maximumFractionDigits = 0 }.format(value)
+
+        private fun compactMoney(value: Double): String {
+            val abs = kotlin.math.abs(value)
+            return when {
+                abs >= 10_000_000 -> "₹%.2fCr".format(Locale.US, value / 10_000_000)
+                abs >= 100_000 -> "₹%.2fL".format(Locale.US, value / 100_000)
+                abs >= 1_000 -> "₹%.1fK".format(Locale.US, value / 1_000)
+                else -> money(value)
+            }
+        }
 
         private fun signedMoney(value: Double): String =
             if (value >= 0) "+${money(value)}" else "-${money(-value)}"
@@ -191,11 +208,11 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = positive
-                strokeWidth = 7f
+                strokeWidth = 6f
                 style = Paint.Style.STROKE
                 strokeCap = Paint.Cap.ROUND
                 strokeJoin = Paint.Join.ROUND
+                color = positive
             }
             val min = values.minOrNull() ?: return null
             val max = values.maxOrNull() ?: return null
