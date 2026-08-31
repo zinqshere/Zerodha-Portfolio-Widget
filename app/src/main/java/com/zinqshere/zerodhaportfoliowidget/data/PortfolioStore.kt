@@ -16,6 +16,8 @@ class PortfolioStore(context: Context) {
         .putString("api_key", apiKey).putString("access_token", accessToken).apply()
     fun apiKey() = prefs.getString("api_key", "") ?: ""
     fun accessToken() = prefs.getString("access_token", "") ?: ""
+    fun saveBackendUrl(url: String) = prefs.edit().putString("backend_url", url.trim().trimEnd('/')).apply()
+    fun backendUrl() = prefs.getString("backend_url", "") ?: ""
 
     fun saveCoin(invested: Double, value: Double) = prefs.edit()
         .putLong("coin_invested", invested.toBits()).putLong("coin_value", value.toBits()).apply()
