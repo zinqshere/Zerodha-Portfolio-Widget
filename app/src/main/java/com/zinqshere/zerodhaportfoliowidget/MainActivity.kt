@@ -80,6 +80,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
     var coinValue by remember { mutableStateOf(store.coinValue().toString().removeSuffix(".0")) }
     var snapshot by remember { mutableStateOf(store.cachedSnapshot()) }
     var status by remember { mutableStateOf(if (store.accessToken().isNotBlank()) "Kite connected" else "Kite not connected") }
+    var kiteError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -104,11 +105,26 @@ private fun PortfolioScreen(store: PortfolioStore) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Kite", style = MaterialTheme.typography.titleMedium)
                     Text("Connect through the supported Kite login flow. Your API secret stays on the backend and never enters this app.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(backendUrl, { backendUrl = it }, Modifier.fillMaxWidth(), label = { Text("Auth backend URL") }, placeholder = { Text("https://your-backend.example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
-                    Button(onClick = {
-                        runCatching { store.saveBackendUrl(backendUrl); KiteAuthClient.openLogin(context, backendUrl); status = "Opening Kite login…" }
-                            .onFailure { status = it.message ?: "Invalid backend URL" }
-                    }) { Text("Connect Kite") }
+                    OutlinedTextField(backendUrl, { backendUrl = it; kiteError = null }, Modifier.fillMaxWidth(), label = { Text("Auth backend URL") }, placeholder = { Text("https://your-backend.example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), isError = kiteError != null)
+                    Button(
+                        enabled = backendUrl.trim().isNotBlank(),
+                        onClick = {
+                            val value = backendUrl.trim()
+                            runCatching {
+                                store.saveBackendUrl(value)
+                                KiteAuthClient.openLogin(context, value)
+                                status = "Opening Kite login…"
+                                kiteError = null
+                            }.onFailure {
+                                kiteError = it.message ?: "Enter a valid HTTPS backend URL"
+                            }
+                        }
+                    ) { Text("Connect Kite") }
+                    if (kiteError != null) {
+                        Text(kiteError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    } else if (backendUrl.isBlank()) {
+                        Text("Enter your deployed auth backend URL first. The app cannot start the Kite login until the backend is configured.", style = MaterialTheme.typography.bodySmall)
+                    }
                     if (store.accessToken().isNotBlank()) Text("Kite session saved securely on this device.", style = MaterialTheme.typography.bodySmall)
                 }
             }
