@@ -71,7 +71,6 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_portfolio)
                 val theme = WidgetAppearance.theme(context, id)
-                val opacity = WidgetAppearance.opacity(context, id)
                 val configuredLayout = WidgetAppearance.layout(context, id)
                 val options = manager.getAppWidgetOptions(id)
                 val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180)
@@ -98,10 +97,9 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 val positive = if (isLight) Color.rgb(24, 120, 65) else Color.rgb(145, 235, 164)
                 val negative = if (isLight) Color.rgb(180, 48, 48) else Color.rgb(255, 150, 150)
 
-                views.setInt(R.id.widget_background, "setColorFilter", background)
-                // ImageView#setAlpha expects a Float. Using setInt here causes
-                // RemoteViews to throw while the launcher is rendering the widget.
-                views.setFloat(R.id.widget_background, "setAlpha", (opacity / 100f).coerceIn(0f, 1f))
+                // The layout root is the actual widget background. RemoteViews can
+                // safely invoke setBackgroundColor on the root LinearLayout.
+                views.setInt(R.id.widget_content, "setBackgroundColor", background)
                 views.setTextColor(R.id.widget_title, foreground)
                 views.setTextColor(R.id.widget_value, foreground)
                 views.setTextColor(R.id.widget_pnl, if (s.totalPnl >= 0) positive else negative)
