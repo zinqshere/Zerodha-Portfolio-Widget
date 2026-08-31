@@ -4,6 +4,6 @@
     android:orientation="vertical" android:padding="16dp" android:background="#FFFFFF">
     <TextView android:id="@+id/widget_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Portfolio" android:textStyle="bold" android:textSize="14sp" />
     <TextView android:id="@+id/widget_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="₹—" android:textStyle="bold" android:textSize="24sp" android:layout_marginTop="4dp" />
-    <TextView android:id="@+id/widget_pnl" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="P&L —" android:textSize="13sp" android:layout_marginTop="2dp" />
+    <TextView android:id="@+id/widget_pnl" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="P&amp;L —" android:textSize="13sp" android:layout_marginTop="2dp" />
     <TextView android:id="@+id/widget_updated" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Not connected" android:textSize="11sp" android:layout_marginTop="6dp" />
 </LinearLayout>
