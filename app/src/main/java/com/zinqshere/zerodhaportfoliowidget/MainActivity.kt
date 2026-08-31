@@ -17,13 +17,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.zinqshere.zerodhaportfoliowidget.data.KiteAuthClient
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRefreshWorker
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRepository
-import com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,9 +52,14 @@ class MainActivity : ComponentActivity() {
     private fun handleAuthIntent(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme != "zerodhaportfolio" || uri.host != "oauth") return
-        val accessToken = uri.getQueryParameter("access_token") ?: return
-        val apiKey = uri.getQueryParameter("api_key") ?: return
-        store.saveKite(apiKey, accessToken)
+        val code = uri.getQueryParameter("code") ?: return
+        val backend = store.backendUrl()
+        if (backend.isBlank()) return
+        lifecycleScope.launch {
+            runCatching { withContext(Dispatchers.IO) { KiteAuthClient.exchangeCode(backend, code) } }
+                .onSuccess { (apiKey, accessToken) -> store.saveKite(apiKey, accessToken) }
+            setIntent(Intent(this@MainActivity, MainActivity::class.java))
+        }
     }
 
     companion object {
@@ -99,21 +104,10 @@ private fun PortfolioScreen(store: PortfolioStore) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Kite", style = MaterialTheme.typography.titleMedium)
                     Text("Connect through the supported Kite login flow. Your API secret stays on the backend and never enters this app.", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(
-                        value = backendUrl,
-                        onValueChange = { backendUrl = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Auth backend URL") },
-                        placeholder = { Text("https://your-backend.example.com") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-                    )
+                    OutlinedTextField(backendUrl, { backendUrl = it }, Modifier.fillMaxWidth(), label = { Text("Auth backend URL") }, placeholder = { Text("https://your-backend.example.com") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
                     Button(onClick = {
-                        runCatching {
-                            store.saveBackendUrl(backendUrl)
-                            KiteAuthClient.openLogin(context, backendUrl)
-                            status = "Opening Kite login…"
-                        }.onFailure { status = it.message ?: "Invalid backend URL" }
+                        runCatching { store.saveBackendUrl(backendUrl); KiteAuthClient.openLogin(context, backendUrl); status = "Opening Kite login…" }
+                            .onFailure { status = it.message ?: "Invalid backend URL" }
                     }) { Text("Connect Kite") }
                     if (store.accessToken().isNotBlank()) Text("Kite session saved securely on this device.", style = MaterialTheme.typography.bodySmall)
                 }
