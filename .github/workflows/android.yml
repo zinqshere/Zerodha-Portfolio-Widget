@@ -38,12 +38,10 @@ jobs:
           KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           test -n "$KEYSTORE_B64" || { echo "Missing RELEASE_KEYSTORE_BASE64"; exit 1; }
           test -n "$KEYSTORE_PASSWORD" || { echo "Missing RELEASE_KEYSTORE_PASSWORD"; exit 1; }
           test -n "$KEY_ALIAS" || { echo "Missing RELEASE_KEY_ALIAS"; exit 1; }
-          test -n "$KEY_PASSWORD" || { echo "Missing RELEASE_KEY_PASSWORD"; exit 1; }
 
       - name: Restore release keystore
         env:
@@ -52,11 +50,21 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 --decode > app/release.keystore
           chmod 600 app/release.keystore
 
+      - name: Validate release keystore
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          keytool -list \
+            -keystore app/release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null
+          echo "Release keystore validated."
+
       - name: Build signed release APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: gradle :app:assembleRelease --no-daemon
 
       - name: Verify APK signature
