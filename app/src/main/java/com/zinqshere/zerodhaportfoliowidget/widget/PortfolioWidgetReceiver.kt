@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.widget.RemoteViews
 import com.zinqshere.zerodhaportfoliowidget.MainActivity
 import com.zinqshere.zerodhaportfoliowidget.R
@@ -18,6 +19,11 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         val store = PortfolioStore(context)
         render(context, manager, ids, store.cachedSnapshot())
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { WidgetAppearance.remove(context, it) }
+        super.onDeleted(context, appWidgetIds)
     }
 
     override fun onEnabled(context: Context) {
@@ -39,22 +45,62 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             }.start()
         }
 
-        private fun render(context: Context, manager: AppWidgetManager, ids: IntArray, s: com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot) {
+        private fun render(
+            context: Context,
+            manager: AppWidgetManager,
+            ids: IntArray,
+            s: com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot
+        ) {
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_portfolio)
+                val theme = WidgetAppearance.theme(context, id)
+                val opacity = WidgetAppearance.opacity(context, id)
+                val isLight = theme == WidgetAppearance.LIGHT
+                val background = when (theme) {
+                    WidgetAppearance.LIGHT -> Color.rgb(247, 247, 249)
+                    WidgetAppearance.PITCH_BLACK -> Color.BLACK
+                    else -> Color.rgb(37, 35, 41)
+                }
+                val foreground = if (isLight) Color.rgb(25, 24, 28) else Color.WHITE
+                val secondary = if (isLight) Color.rgb(80, 78, 86) else Color.rgb(205, 201, 211)
+
+                views.setInt(R.id.widget_background, "setColorFilter", background)
+                views.setInt(R.id.widget_background, "setAlpha", (opacity * 255 / 100).coerceIn(0, 255))
+                views.setTextColor(R.id.widget_title, foreground)
+                views.setTextColor(R.id.widget_value, foreground)
+                views.setTextColor(R.id.widget_pnl, secondary)
+                views.setTextColor(R.id.widget_updated, secondary)
                 views.setTextViewText(R.id.widget_value, money(s.totalValue))
                 views.setTextViewText(R.id.widget_pnl, "P&L ${money(s.totalPnl)}")
-                views.setTextViewText(R.id.widget_updated, if (s.updatedAt == 0L) "Connect Kite in app" else "Updated ${relativeTime(s.updatedAt)}")
+                views.setTextViewText(
+                    R.id.widget_updated,
+                    if (s.updatedAt == 0L) "Connect Kite in app" else "Updated ${relativeTime(s.updatedAt)}"
+                )
+
                 val intent = Intent(context, MainActivity::class.java)
-                views.setOnClickPendingIntent(id, PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+                views.setOnClickPendingIntent(
+                    R.id.widget_content,
+                    PendingIntent.getActivity(
+                        context,
+                        id,
+                        intent,
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                )
                 manager.updateAppWidget(id, views)
             }
         }
 
-        private fun money(value: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).format(value)
+        private fun money(value: Double): String =
+            NumberFormat.getCurrencyInstance(Locale("en", "IN")).format(value)
+
         private fun relativeTime(timestamp: Long): String {
             val minutes = ((System.currentTimeMillis() - timestamp) / 60000L).coerceAtLeast(0)
-            return when { minutes < 1 -> "just now"; minutes < 60 -> "${minutes}m ago"; else -> "${minutes / 60}h ago" }
+            return when {
+                minutes < 1 -> "just now"
+                minutes < 60 -> "${minutes}m ago"
+                else -> "${minutes / 60}h ago"
+            }
         }
     }
 }
