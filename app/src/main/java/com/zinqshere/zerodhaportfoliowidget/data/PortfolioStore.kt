@@ -24,6 +24,9 @@ class PortfolioStore(context: Context) {
     fun coinInvested() = Double.fromBits(prefs.getLong("coin_invested", 0L))
     fun coinValue() = Double.fromBits(prefs.getLong("coin_value", 0L))
 
+    fun saveTheme(theme: String) = prefs.edit().putString("theme", theme).apply()
+    fun theme() = prefs.getString("theme", "dark_monet") ?: "dark_monet"
+
     fun saveSnapshot(s: PortfolioSnapshot) = prefs.edit()
         .putLong("equity_value", s.equityValue.toBits())
         .putLong("equity_invested", s.equityInvested.toBits())
