@@ -7,8 +7,8 @@ import com.zinqshere.zerodhaportfoliowidget.widget.PortfolioWidgetReceiver
 
 class PortfolioRefreshWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result = runCatching {
-        val snapshot = PortfolioRepository(PortfolioStore(applicationContext)).refresh()
-        PortfolioSnapshotStore(applicationContext).save(snapshot)
+        val store = PortfolioStore(applicationContext)
+        store.saveSnapshot(PortfolioRepository(store).refresh())
         PortfolioWidgetReceiver.refresh(applicationContext)
     }.fold({ Result.success() }, { Result.retry() })
 }
