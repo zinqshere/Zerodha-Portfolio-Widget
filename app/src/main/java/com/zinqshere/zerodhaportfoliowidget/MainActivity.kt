@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material.icons.outlined.AddHome
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.Refresh
@@ -177,31 +176,6 @@ private fun PortfolioScreen(store: PortfolioStore, authVersion: Int) {
                         pnl = snapshot.coinPnl,
                         subtitle = "Fetched automatically from Coin via Kite"
                     )
-                }
-
-                ElevatedCard(
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(Icons.Outlined.AddHome, contentDescription = null)
-                            Column(Modifier.weight(1f)) {
-                                Text("Home-screen widget", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                                Text("Place your portfolio card directly on the launcher.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Button(
-                            enabled = pinSupported,
-                            onClick = {
-                                val manager = AppWidgetManager.getInstance(context)
-                                val provider = ComponentName(context, PortfolioWidgetReceiver::class.java)
-                                manager.requestPinAppWidget(provider, null, null)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp)
-                        ) { Text("Add widget to home screen") }
-                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
