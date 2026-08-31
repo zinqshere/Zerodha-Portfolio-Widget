@@ -1,6 +1,10 @@
 package com.zinqshere.zerodhaportfoliowidget.data
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -21,13 +25,17 @@ class KiteClient(private val apiKey: String, private val accessToken: String) {
             return root["data"]?.jsonArray?.mapNotNull { item ->
                 val o = item.jsonObject
                 val qty = (o["quantity"]?.jsonPrimitive?.doubleOrNull ?: 0.0) +
-                    (o["t1_quantity"]?.jsonPrimitive?.doubleOrNull ?: 0.0) +
-                    (o["mtf"]?.jsonObject?.get("quantity")?.jsonPrimitive?.doubleOrNull ?: 0.0)
+                    (o["t1_quantity"]?.jsonPrimitive?.doubleOrNull ?: 0.0)
                 val avg = o["average_price"]?.jsonPrimitive?.doubleOrNull ?: 0.0
                 val last = o["last_price"]?.jsonPrimitive?.doubleOrNull ?: 0.0
-                Holding(o["tradingsymbol"]?.jsonPrimitive?.content ?: "", qty, avg, last,
-                    (last - avg) * qty,
-                    o["day_change"]?.jsonPrimitive?.doubleOrNull?.times(qty) ?: 0.0)
+                Holding(
+                    symbol = o["tradingsymbol"]?.jsonPrimitive?.content ?: "",
+                    quantity = qty,
+                    averagePrice = avg,
+                    lastPrice = last,
+                    pnl = (last - avg) * qty,
+                    dayPnl = o["day_change"]?.jsonPrimitive?.doubleOrNull?.times(qty) ?: 0.0
+                )
             } ?: emptyList()
         }
     }
