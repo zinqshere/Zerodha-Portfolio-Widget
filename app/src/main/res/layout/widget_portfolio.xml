@@ -20,7 +20,7 @@
         android:paddingStart="18dp"
         android:paddingTop="15dp"
         android:paddingEnd="18dp"
-        android:paddingBottom="15dp">
+        android:paddingBottom="14dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -47,37 +47,55 @@
                 android:contentDescription="Refresh portfolio" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/widget_value"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:text="₹—"
-            android:textSize="25sp"
-            android:textStyle="bold"
-            android:fontFamily="sans" />
+            android:orientation="horizontal"
+            android:gravity="bottom"
+            android:layout_marginTop="3dp">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/widget_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="₹—"
+                    android:textSize="25sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans" />
+                <TextView
+                    android:id="@+id/widget_pnl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:text="+₹—  +—%"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            <TextView
+                android:id="@+id/widget_today"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:paddingStart="14dp"
+                android:text="Today\n+₹—  +—%"
+                android:textSize="11sp"
+                android:gravity="start" />
+        </LinearLayout>
 
-        <TextView
-            android:id="@+id/widget_pnl"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
-            android:text="+₹—  +—%"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/widget_today"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Today  +₹—  +—%"
-            android:textSize="11sp" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="9dp"
+            android:background="#33FFFFFF" />
 
         <ImageView
             android:id="@+id/widget_chart"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
+            android:layout_height="45dp"
             android:layout_marginTop="5dp"
             android:scaleType="fitXY"
             android:contentDescription="Portfolio performance" />
@@ -86,25 +104,65 @@
             android:id="@+id/widget_breakdown"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="5dp"
             android:orientation="horizontal">
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
-                <TextView android:id="@+id/widget_equity_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Equity" android:textSize="10sp" android:alpha="0.72" />
-                <TextView android:id="@+id/widget_equity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="₹—" android:textSize="13sp" android:textStyle="bold" />
-                <TextView android:id="@+id/widget_equity_pnl" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="+—%" android:textSize="10sp" />
+                <TextView
+                    android:id="@+id/widget_equity_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Equity"
+                    android:textSize="10sp"
+                    android:alpha="0.72" />
+                <TextView
+                    android:id="@+id/widget_equity"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="₹—"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/widget_equity_pnl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+—%"
+                    android:textSize="10sp" />
             </LinearLayout>
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="#33FFFFFF" />
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
-                <TextView android:id="@+id/widget_mf_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mutual Funds" android:textSize="10sp" android:alpha="0.72" />
-                <TextView android:id="@+id/widget_mf" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="₹—" android:textSize="13sp" android:textStyle="bold" />
-                <TextView android:id="@+id/widget_mf_pnl" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="+—%" android:textSize="10sp" />
+                <TextView
+                    android:id="@+id/widget_mf_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Mutual Funds"
+                    android:textSize="10sp"
+                    android:alpha="0.72" />
+                <TextView
+                    android:id="@+id/widget_mf"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="₹—"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/widget_mf_pnl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+—%"
+                    android:textSize="10sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -112,7 +170,7 @@
             android:id="@+id/widget_updated"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="5dp"
             android:text="Connect Kite in app"
             android:textSize="10sp" />
     </LinearLayout>
