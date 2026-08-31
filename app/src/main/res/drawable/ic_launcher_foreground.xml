@@ -1,7 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FFFFFF" android:pathData="M25,75 L25,57 L34,57 L34,75 Z M40,75 L40,47 L49,47 L49,75 Z M55,75 L55,36 L64,36 L64,75 Z"/>
-    <path android:fillColor="#4DD8A5" android:pathData="M70,75 L70,28 L79,28 L79,75 Z"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M25,46 L42,30 L52,38 L76,18 L81,24 L53,47 L42,39 L30,51 Z"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M72,18 L88,18 L88,34 L81,34 L81,25 L72,25 Z"/>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Minimal portfolio-growth mark, kept inside the adaptive-icon safe zone. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M27,70 L27,57 C27,54.8 28.8,53 31,53 L36,53 L36,70 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,70 L42,46 C42,43.8 43.8,42 46,42 L51,42 L51,70 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M57,70 L57,35 C57,32.8 58.8,31 61,31 L66,31 L66,70 Z" />
+
+    <path
+        android:fillColor="#B9C8FF"
+        android:pathData="M72,70 L72,25 C72,22.8 73.8,21 76,21 L81,21 L81,70 Z" />
+
+    <!-- Rising trend line and arrow. -->
+    <path
+        android:fillColor="#B9C8FF"
+        android:pathData="M24,49 L40,35 L51,43 L77,19 L83,25 L52,53 L40,44 L29,55 Z" />
+    <path
+        android:fillColor="#B9C8FF"
+        android:pathData="M73,18 L89,18 L89,34 L82,34 L82,25 L73,25 Z" />
 </vector>
