@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Window
 import androidx.activity.ComponentActivity
@@ -19,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AddHome
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
@@ -45,6 +47,12 @@ import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+
+private enum class PortfolioTheme(val key: String, val label: String) {
+    PITCH_BLACK("pitch_black", "Pitch Black"),
+    MONET("monet", "Monet"),
+    DARK_MONET("dark_monet", "Dark Monet")
+}
 
 class MainActivity : ComponentActivity() {
     private lateinit var store: PortfolioStore
@@ -103,6 +111,9 @@ private fun PortfolioScreen(store: PortfolioStore) {
     var snapshot by remember { mutableStateOf(store.cachedSnapshot()) }
     var status by remember { mutableStateOf(if (store.accessToken().isNotBlank()) "Kite connected" else "Kite not connected") }
     var kiteError by remember { mutableStateOf<String?>(null) }
+    var selectedTheme by remember {
+        mutableStateOf(PortfolioTheme.entries.firstOrNull { it.key == store.theme() } ?: PortfolioTheme.DARK_MONET)
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val pinSupported = remember { AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported }
@@ -121,20 +132,13 @@ private fun PortfolioScreen(store: PortfolioStore) {
         }
     }
 
-    val darkScheme = darkColorScheme(
-        primary = Color(0xFFBCA7FF),
-        onPrimary = Color(0xFF2A0059),
-        secondary = Color(0xFFD6BEE8),
-        tertiary = Color(0xFFFFB0CA),
-        background = Color(0xFF0B0B0F),
-        surface = Color(0xFF141419),
-        surfaceVariant = Color(0xFF202027),
-        onBackground = Color(0xFFE7E1E8),
-        onSurface = Color(0xFFE7E1E8),
-        onSurfaceVariant = Color(0xFFC7BEC9)
-    )
+    val colorScheme = when (selectedTheme) {
+        PortfolioTheme.PITCH_BLACK -> pitchBlackScheme()
+        PortfolioTheme.MONET -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) dynamicLightColorScheme(context) else lightColorScheme()
+        PortfolioTheme.DARK_MONET -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) dynamicDarkColorScheme(context) else darkMonetFallbackScheme()
+    }
 
-    MaterialTheme(colorScheme = darkScheme) {
+    MaterialTheme(colorScheme = colorScheme) {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier = Modifier
@@ -148,6 +152,32 @@ private fun PortfolioScreen(store: PortfolioStore) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Zerodha Portfolio", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
                     Text("Kite equity + Coin mutual funds", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                SectionCard(title = "Appearance", icon = Icons.Outlined.DarkMode) {
+                    Text("Choose the look that fits your device and wallpaper.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        PortfolioTheme.entries.forEachIndexed { index, theme ->
+                            SegmentedButton(
+                                selected = selectedTheme == theme,
+                                onClick = {
+                                    selectedTheme = theme
+                                    store.saveTheme(theme.key)
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = PortfolioTheme.entries.size),
+                                label = { Text(theme.label, maxLines = 1) }
+                            )
+                        }
+                    }
+                    Text(
+                        when (selectedTheme) {
+                            PortfolioTheme.PITCH_BLACK -> "Pure black surfaces for OLED-friendly viewing."
+                            PortfolioTheme.MONET -> "Dynamic Material You colors from your wallpaper."
+                            PortfolioTheme.DARK_MONET -> "Dynamic Material You dark colors from your wallpaper."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 ElevatedCard(
@@ -252,6 +282,32 @@ private fun PortfolioScreen(store: PortfolioStore) {
         }
     }
 }
+
+private fun pitchBlackScheme() = darkColorScheme(
+    primary = Color(0xFFD0BCFF),
+    onPrimary = Color(0xFF2A0059),
+    secondary = Color(0xFFCCC2DC),
+    tertiary = Color(0xFFEFB8C8),
+    background = Color.Black,
+    surface = Color.Black,
+    surfaceVariant = Color(0xFF161616),
+    onBackground = Color(0xFFF5F5F5),
+    onSurface = Color(0xFFF5F5F5),
+    onSurfaceVariant = Color(0xFFC9C9C9)
+)
+
+private fun darkMonetFallbackScheme() = darkColorScheme(
+    primary = Color(0xFFB9C8FF),
+    onPrimary = Color(0xFF102D68),
+    secondary = Color(0xFFBFC7E7),
+    tertiary = Color(0xFFE5B9D0),
+    background = Color(0xFF101318),
+    surface = Color(0xFF171A20),
+    surfaceVariant = Color(0xFF272B34),
+    onBackground = Color(0xFFE2E5EC),
+    onSurface = Color(0xFFE2E5EC),
+    onSurfaceVariant = Color(0xFFC1C6D0)
+)
 
 @Composable
 private fun SectionCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector? = null, content: @Composable ColumnScope.() -> Unit) {
