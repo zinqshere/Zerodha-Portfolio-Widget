@@ -6,7 +6,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -22,6 +21,7 @@ import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AddHome
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -114,6 +114,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
     var selectedTheme by remember {
         mutableStateOf(PortfolioTheme.entries.firstOrNull { it.key == store.theme() } ?: PortfolioTheme.DARK_MONET)
     }
+    var showAppearanceDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val pinSupported = remember { AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported }
@@ -149,35 +150,21 @@ private fun PortfolioScreen(store: PortfolioStore) {
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Zerodha Portfolio", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Kite equity + Coin mutual funds", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                SectionCard(title = "Appearance", icon = Icons.Outlined.DarkMode) {
-                    Text("Choose the look that fits your device and wallpaper.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        PortfolioTheme.entries.forEachIndexed { index, theme ->
-                            SegmentedButton(
-                                selected = selectedTheme == theme,
-                                onClick = {
-                                    selectedTheme = theme
-                                    store.saveTheme(theme.key)
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = PortfolioTheme.entries.size),
-                                label = { Text(theme.label, maxLines = 1) }
-                            )
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Zerodha Portfolio", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Kite equity + Coin mutual funds", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(
-                        when (selectedTheme) {
-                            PortfolioTheme.PITCH_BLACK -> "Pure black surfaces for OLED-friendly viewing."
-                            PortfolioTheme.MONET -> "Dynamic Material You colors from your wallpaper."
-                            PortfolioTheme.DARK_MONET -> "Dynamic Material You dark colors from your wallpaper."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    IconButton(
+                        onClick = { showAppearanceDialog = true },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Appearance settings")
+                    }
                 }
 
                 ElevatedCard(
@@ -280,6 +267,46 @@ private fun PortfolioScreen(store: PortfolioStore) {
                 }
             }
         }
+
+        if (showAppearanceDialog) {
+            AlertDialog(
+                onDismissRequest = { showAppearanceDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.DarkMode, contentDescription = null)
+                        Text("Appearance")
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Choose the look that fits your device and wallpaper.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        PortfolioTheme.entries.forEach { theme ->
+                            val selected = selectedTheme == theme
+                            OutlinedButton(
+                                onClick = {
+                                    selectedTheme = theme
+                                    store.saveTheme(theme.key)
+                                    showAppearanceDialog = false
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                                ),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(theme.label, modifier = Modifier.weight(1f))
+                                    if (selected) Icon(Icons.Outlined.Settings, contentDescription = "Selected")
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showAppearanceDialog = false }) { Text("Done") }
+                }
+            )
+        }
     }
 }
 
@@ -344,22 +371,29 @@ private fun parseCoinCsv(context: android.content.Context, uri: Uri): Pair<Doubl
         invested += row.getOrNull(investedIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
         value += row.getOrNull(valueIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
     }
-    if (invested == 0.0 && value == 0.0) error("No numeric investment totals found")
     return invested to value
 }
 
 private fun parseCsvLine(line: String): List<String> {
-    val result = mutableListOf<String>(); val cell = StringBuilder(); var quoted = false; var i = 0
+    val result = mutableListOf<String>()
+    val current = StringBuilder()
+    var quoted = false
+    var i = 0
     while (i < line.length) {
         when (val c = line[i]) {
-            '"' -> if (quoted && i + 1 < line.length && line[i + 1] == '"') { cell.append('"'); i++ } else quoted = !quoted
-            ',' -> if (quoted) cell.append(c) else { result += cell.toString(); cell.clear() }
-            else -> cell.append(c)
+            '"' -> {
+                if (quoted && i + 1 < line.length && line[i + 1] == '"') {
+                    current.append('"')
+                    i++
+                } else quoted = !quoted
+            }
+            ',' -> if (quoted) current.append(c) else { result += current.toString(); current.setLength(0) }
+            else -> current.append(c)
         }
         i++
     }
-    result += cell.toString()
+    result += current.toString()
     return result
 }
 
-private fun money(v: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).format(v)
+private fun money(value: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply { maximumFractionDigits = 2 }.format(value)
