@@ -8,7 +8,6 @@ object WidgetAppearance {
     const val DARK = "dark"
     const val PITCH_BLACK = "pitch_black"
 
-    const val AUTO = "auto"
     const val COMPACT = "compact"
     const val STANDARD = "standard"
     const val DASHBOARD = "dashboard"
@@ -29,8 +28,13 @@ object WidgetAppearance {
     fun opacity(context: Context, appWidgetId: Int): Int =
         prefs(context).getInt(OPACITY_PREFIX + appWidgetId, 100).coerceIn(20, 100)
 
-    fun layout(context: Context, appWidgetId: Int): String =
-        prefs(context).getString(LAYOUT_PREFIX + appWidgetId, AUTO) ?: AUTO
+    fun layout(context: Context, appWidgetId: Int): String {
+        val stored = prefs(context).getString(LAYOUT_PREFIX + appWidgetId, STANDARD) ?: STANDARD
+        return when (stored) {
+            COMPACT, STANDARD, DASHBOARD -> stored
+            else -> STANDARD
+        }
+    }
 
     fun showToday(context: Context, appWidgetId: Int): Boolean =
         prefs(context).getBoolean(TODAY_PREFIX + appWidgetId, true)
@@ -46,15 +50,19 @@ object WidgetAppearance {
         appWidgetId: Int,
         theme: String,
         opacity: Int,
-        layout: String = AUTO,
+        layout: String = STANDARD,
         showToday: Boolean = true,
         showBreakdown: Boolean = true,
         showChart: Boolean = false
     ) {
+        val safeLayout = when (layout) {
+            COMPACT, STANDARD, DASHBOARD -> layout
+            else -> STANDARD
+        }
         prefs(context).edit()
             .putString(THEME_PREFIX + appWidgetId, theme)
             .putInt(OPACITY_PREFIX + appWidgetId, opacity.coerceIn(20, 100))
-            .putString(LAYOUT_PREFIX + appWidgetId, layout)
+            .putString(LAYOUT_PREFIX + appWidgetId, safeLayout)
             .putBoolean(TODAY_PREFIX + appWidgetId, showToday)
             .putBoolean(BREAKDOWN_PREFIX + appWidgetId, showBreakdown)
             .putBoolean(CHART_PREFIX + appWidgetId, showChart)
