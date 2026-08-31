@@ -14,6 +14,7 @@ import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRepository
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
@@ -45,10 +46,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
                     Text("Kite", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text("API key") }, singleLine = true)
                     OutlinedTextField(accessToken, { accessToken = it }, Modifier.fillMaxWidth(), label = { Text("Access token") }, singleLine = true)
-                    Button(onClick = {
-                        store.saveKite(apiKey.trim(), accessToken.trim())
-                        status = "Credentials saved."
-                    }) { Text("Save Kite") }
+                    Button(onClick = { store.saveKite(apiKey.trim(), accessToken.trim()); status = "Credentials saved." }) { Text("Save Kite") }
                 }
             }
             Card(Modifier.fillMaxWidth()) {
@@ -59,10 +57,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
                         OutlinedTextField(coinInvested, { coinInvested = it }, Modifier.weight(1f), label = { Text("Invested") }, singleLine = true)
                         OutlinedTextField(coinValue, { coinValue = it }, Modifier.weight(1f), label = { Text("Current value") }, singleLine = true)
                     }
-                    Button(onClick = {
-                        store.saveCoin(coinInvested.toDoubleOrNull() ?: 0.0, coinValue.toDoubleOrNull() ?: 0.0)
-                        status = "Coin totals saved"
-                    }) { Text("Save Coin") }
+                    Button(onClick = { store.saveCoin(coinInvested.toDoubleOrNull() ?: 0.0, coinValue.toDoubleOrNull() ?: 0.0); status = "Coin totals saved" }) { Text("Save Coin") }
                 }
             }
             Card(Modifier.fillMaxWidth()) {
