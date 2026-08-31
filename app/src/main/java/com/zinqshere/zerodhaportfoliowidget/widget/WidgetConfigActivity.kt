@@ -62,7 +62,8 @@ class WidgetConfigActivity : ComponentActivity() {
 
         val initialTheme = WidgetAppearance.theme(this, appWidgetId)
         val initialOpacity = WidgetAppearance.opacity(this, appWidgetId)
-        val initialLayout = WidgetAppearance.layout(this, appWidgetId)
+        val storedLayout = WidgetAppearance.layout(this, appWidgetId)
+        val initialLayout = if (storedLayout == WidgetAppearance.AUTO || storedLayout == WidgetAppearance.DASHBOARD) WidgetAppearance.STANDARD else storedLayout
         val initialToday = WidgetAppearance.showToday(this, appWidgetId)
         val initialBreakdown = WidgetAppearance.showBreakdown(this, appWidgetId)
         val initialChart = WidgetAppearance.showChart(this, appWidgetId)
@@ -76,7 +77,10 @@ class WidgetConfigActivity : ComponentActivity() {
             var showChart by remember { mutableStateOf(initialChart) }
 
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier = Modifier
@@ -103,7 +107,6 @@ class WidgetConfigActivity : ComponentActivity() {
                                     Spacer(Modifier.height(6.dp))
                                     LayoutChoice("Compact — value + return", WidgetAppearance.COMPACT, layout) { layout = it }
                                     LayoutChoice("Standard — breakdown", WidgetAppearance.STANDARD, layout) { layout = it }
-                                    LayoutChoice("Dashboard — breakdown + chart", WidgetAppearance.DASHBOARD, layout) { layout = it }
                                 }
                             }
 
@@ -125,7 +128,6 @@ class WidgetConfigActivity : ComponentActivity() {
                                     Text("Information", style = MaterialTheme.typography.titleMedium)
                                     SettingSwitch("Today's P&L", showToday) { showToday = it }
                                     SettingSwitch("Equity + mutual fund breakdown", showBreakdown) { showBreakdown = it }
-                                    SettingSwitch("Performance chart (dashboard)", showChart) { showChart = it }
                                 }
                             }
                         }
@@ -133,7 +135,7 @@ class WidgetConfigActivity : ComponentActivity() {
                         Surface(tonalElevation = 3.dp) {
                             Button(
                                 onClick = {
-                                    WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, showChart)
+                                    WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, false)
                                     setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
                                     PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
                                     finish()
@@ -173,12 +175,7 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
         else -> PreviewPalette(Color(0xFF252329), Color.White, Color(0xFFCDC9D3), Color(0xFF91EBA4))
     }
     val compact = layout == WidgetAppearance.COMPACT
-    val dashboard = layout == WidgetAppearance.DASHBOARD
-    val cardHeight = when {
-        compact -> 112.dp
-        dashboard -> 220.dp
-        else -> 182.dp
-    }
+    val cardHeight = if (compact) 112.dp else 182.dp
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Preview", style = MaterialTheme.typography.labelLarge)
@@ -199,7 +196,7 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("₹12,45,820", color = palette.content, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        Text("+₹1,84,230  +17.35%", color = palette.positive, fontWeight = FontWeight.Bold)
+                        Text("+₹1,84,230   +17.35%", color = palette.positive, fontWeight = FontWeight.Bold)
                     }
                     if (!compact && showToday) {
                         Column(modifier = Modifier.padding(start = 12.dp)) {
@@ -215,9 +212,6 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
                         PreviewMetric("Equity", "₹8.72L", "+17.88%", palette)
                         PreviewMetric("Mutual Funds", "₹3.73L", "+16.13%", palette)
                     }
-                }
-                if (dashboard && showChart) {
-                    Text("╱╲╱╲╱╲╱╱", color = palette.positive, style = MaterialTheme.typography.titleMedium)
                 }
                 Spacer(Modifier.weight(1f))
                 Text("Updated 2 min ago", color = palette.secondary, style = MaterialTheme.typography.labelSmall)
