@@ -51,8 +51,10 @@ class WidgetConfigActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = true
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        val darkTheme = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        controller.isAppearanceLightStatusBars = !darkTheme
+        controller.isAppearanceLightNavigationBars = !darkTheme
 
         appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
         if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -75,26 +77,22 @@ class WidgetConfigActivity : ComponentActivity() {
             var layout by remember { mutableStateOf(initialLayout) }
             var showToday by remember { mutableStateOf(initialToday) }
             var showBreakdown by remember { mutableStateOf(initialBreakdown) }
-            var showChart by remember { mutableStateOf(initialChart) }
 
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                val background = MaterialTheme.colorScheme.background
+                val onBackground = MaterialTheme.colorScheme.onBackground
+                Surface(modifier = Modifier.fillMaxSize(), color = background, contentColor = onBackground) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)
-                        ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
                             Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(4.dp))
                             Text("Customize this widget. Other widgets can use different settings.", style = MaterialTheme.typography.bodyMedium)
                             Spacer(Modifier.height(16.dp))
-                            WidgetPreview(theme, opacity, layout, showToday, showBreakdown, showChart)
+                            WidgetPreview(theme, opacity, layout, showToday, showBreakdown, false)
                         }
 
                         Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 24.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             Card(modifier = Modifier.fillMaxWidth()) {
@@ -128,16 +126,13 @@ class WidgetConfigActivity : ComponentActivity() {
                             }
                         }
 
-                        Surface(tonalElevation = 3.dp) {
-                            Button(
-                                onClick = {
-                                    WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, false)
-                                    setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-                                    PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
-                                    finish()
-                                },
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)
-                            ) { Text("Save widget") }
+                        Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surface) {
+                            Button(onClick = {
+                                WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, false)
+                                setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+                                PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
+                                finish()
+                            }, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) { Text("Save widget") }
                         }
                     }
                 }
@@ -176,14 +171,7 @@ private fun WidgetPreview(theme: String, opacity: Float, layout: String, showTod
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Preview", style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(cardHeight)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.background.copy(alpha = opacity / 100f))
-                .padding(horizontal = 18.dp, vertical = 14.dp)
-        ) {
+        Box(modifier = Modifier.fillMaxWidth().height(cardHeight).clip(RoundedCornerShape(24.dp)).background(palette.background.copy(alpha = opacity / 100f)).padding(horizontal = 18.dp, vertical = 14.dp)) {
             Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Zerodha Portfolio", color = palette.content, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
