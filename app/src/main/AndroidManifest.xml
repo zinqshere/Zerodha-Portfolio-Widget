@@ -10,11 +10,14 @@
         android:allowBackup="false"
         android:supportsRtl="true">
 
-        <!-- The launcher/widget host must be able to launch this configuration screen. -->
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:exported="true"
-            android:excludeFromRecents="true" />
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".MainActivity"
