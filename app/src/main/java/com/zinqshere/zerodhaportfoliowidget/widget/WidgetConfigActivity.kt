@@ -64,7 +64,7 @@ class WidgetConfigActivity : ComponentActivity() {
         val initialTheme = WidgetAppearance.theme(this, appWidgetId)
         val initialOpacity = WidgetAppearance.opacity(this, appWidgetId)
         val storedLayout = WidgetAppearance.layout(this, appWidgetId)
-        val initialLayout = if (storedLayout == WidgetAppearance.AUTO || storedLayout == WidgetAppearance.DASHBOARD) WidgetAppearance.STANDARD else storedLayout
+        val initialLayout = if (storedLayout == WidgetAppearance.DASHBOARD) WidgetAppearance.STANDARD else storedLayout
         val initialToday = WidgetAppearance.showToday(this, appWidgetId)
         val initialBreakdown = WidgetAppearance.showBreakdown(this, appWidgetId)
         val initialChart = WidgetAppearance.showChart(this, appWidgetId)
