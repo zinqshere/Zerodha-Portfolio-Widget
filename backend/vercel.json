@@ -1,1 +1,1 @@
-{"rewrites":[{"source":"/api/kite/login","destination":"/api/kite/login.js"},{"source":"/api/kite/callback","destination":"/api/kite/callback.js"}]}
+{"rewrites":[{"source":"/api/kite/login","destination":"/api/kite/login.js"},{"source":"/api/kite/callback","destination":"/api/kite/callback.js"},{"source":"/api/kite/exchange","destination":"/api/kite/exchange.js"}]}
