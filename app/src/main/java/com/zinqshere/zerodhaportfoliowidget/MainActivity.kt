@@ -17,6 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRefreshWorker
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRepository
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioStore
@@ -25,11 +30,23 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        scheduleRefresh(this)
         setContent { PortfolioScreen(PortfolioStore(this)) }
+    }
+
+    companion object {
+        fun scheduleRefresh(context: android.content.Context) {
+            val request = PeriodicWorkRequestBuilder<PortfolioRefreshWorker>(30, TimeUnit.MINUTES)
+                .setInitialDelay(5, TimeUnit.MINUTES).build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                "portfolio-refresh", ExistingPeriodicWorkPolicy.UPDATE, request
+            )
+        }
     }
 }
 
@@ -42,27 +59,17 @@ private fun PortfolioScreen(store: PortfolioStore) {
     var snapshot by remember { mutableStateOf(store.cachedSnapshot()) }
     var status by remember { mutableStateOf(if (snapshot.updatedAt > 0) "Last cached portfolio loaded" else "Not connected") }
     val scope = rememberCoroutineScope()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) { parseCoinCsv(context, uri) }
-                }.onSuccess { totals ->
+        if (uri != null) scope.launch {
+            runCatching { withContext(Dispatchers.IO) { parseCoinCsv(context, uri) } }
+                .onSuccess { totals ->
                     store.saveCoin(totals.first, totals.second)
-                    coinInvested = totals.first.toString()
-                    coinValue = totals.second.toString()
-                    snapshot = store.cachedSnapshot().copy(
-                        coinInvested = totals.first,
-                        coinValue = totals.second,
-                        coinPnl = totals.second - totals.first,
-                        updatedAt = System.currentTimeMillis()
-                    )
-                    store.saveSnapshot(snapshot)
-                    status = "Coin CSV imported"
+                    coinInvested = totals.first.toString(); coinValue = totals.second.toString()
+                    snapshot = snapshot.copy(coinInvested = totals.first, coinValue = totals.second, coinPnl = totals.second - totals.first, updatedAt = System.currentTimeMillis())
+                    store.saveSnapshot(snapshot); status = "Coin CSV imported"
                 }.onFailure { status = "Coin import failed: ${it.message}" }
-            }
         }
     }
 
@@ -74,32 +81,25 @@ private fun PortfolioScreen(store: PortfolioStore) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Kite", style = MaterialTheme.typography.titleMedium)
-                    Text("Kite access tokens expire at 6 AM the next day. For a production mobile app, Zerodha requires the token-exchange secret to stay on a backend; this MVP therefore accepts the generated access token directly.", style = MaterialTheme.typography.bodySmall)
+                    Text("This MVP accepts a generated Kite access token. Zerodha's mobile-app authentication flow is restricted to exchange-approved partner apps, so we don't pretend to provide that private flow.", style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(apiKey, { apiKey = it }, Modifier.fillMaxWidth(), label = { Text("API key") }, singleLine = true)
                     OutlinedTextField(accessToken, { accessToken = it }, Modifier.fillMaxWidth(), label = { Text("Access token") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-                    Button(onClick = {
-                        store.saveKite(apiKey.trim(), accessToken.trim())
-                        status = "Kite credentials saved"
-                    }) { Text("Save Kite") }
+                    Button(onClick = { store.saveKite(apiKey.trim(), accessToken.trim()); status = "Kite credentials saved" }) { Text("Save Kite") }
                 }
             }
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Coin", style = MaterialTheme.typography.titleMedium)
-                    Text("Zerodha currently documents Coin portfolio viewing in the Coin app/web rather than a public Coin portfolio API. The app supports importing a CSV containing invested/current totals so Coin can still be included without scraping your account.", style = MaterialTheme.typography.bodySmall)
+                    Text("Coin is included through manual totals or CSV import; we do not scrape your Coin session.", style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(coinInvested, { coinInvested = it }, Modifier.weight(1f), label = { Text("Invested") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                         OutlinedTextField(coinValue, { coinValue = it }, Modifier.weight(1f), label = { Text("Current value") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = {
-                            val invested = coinInvested.toDoubleOrNull() ?: 0.0
-                            val value = coinValue.toDoubleOrNull() ?: 0.0
-                            store.saveCoin(invested, value)
-                            snapshot = snapshot.copy(coinInvested = invested, coinValue = value, coinPnl = value - invested, updatedAt = System.currentTimeMillis())
-                            store.saveSnapshot(snapshot)
-                            status = "Coin totals saved"
+                            val invested = coinInvested.toDoubleOrNull() ?: 0.0; val value = coinValue.toDoubleOrNull() ?: 0.0
+                            store.saveCoin(invested, value); snapshot = snapshot.copy(coinInvested = invested, coinValue = value, coinPnl = value - invested, updatedAt = System.currentTimeMillis()); store.saveSnapshot(snapshot); status = "Coin totals saved"
                         }) { Text("Save") }
                         OutlinedButton(onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv")) }) { Text("Import CSV") }
                     }
@@ -119,7 +119,7 @@ private fun PortfolioScreen(store: PortfolioStore) {
                         scope.launch {
                             status = "Refreshing Kite…"
                             runCatching { withContext(Dispatchers.IO) { PortfolioRepository(store).refresh() } }
-                                .onSuccess { snapshot = it; status = "Updated just now" }
+                                .onSuccess { snapshot = it; store.saveSnapshot(it); status = "Updated just now" }
                                 .onFailure { status = it.message ?: "Refresh failed" }
                         }
                     }) { Text("Refresh now") }
@@ -130,17 +130,14 @@ private fun PortfolioScreen(store: PortfolioStore) {
 }
 
 private fun parseCoinCsv(context: android.content.Context, uri: Uri): Pair<Double, Double> {
-    val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        ?: error("Could not read file")
+    val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("Could not read file")
     val rows = text.lineSequence().filter { it.isNotBlank() }.map { parseCsvLine(it) }.toList()
     if (rows.size < 2) error("CSV has no data rows")
     val headers = rows.first().map { it.trim().lowercase(Locale.ROOT) }
-    fun find(vararg names: String): Int = names.firstNotNullOfOrNull { name -> headers.indexOf(name).takeIf { it >= 0 } }
-        ?: error("Missing column: ${names.first()}")
+    fun find(vararg names: String): Int = names.firstNotNullOfOrNull { name -> headers.indexOf(name).takeIf { it >= 0 } } ?: error("Missing column: ${names.first()}")
     val investedIndex = find("invested amount", "invested", "total invested", "investment")
     val valueIndex = find("current amount", "current value", "current", "market value", "value")
-    var invested = 0.0
-    var value = 0.0
+    var invested = 0.0; var value = 0.0
     rows.drop(1).forEach { row ->
         invested += row.getOrNull(investedIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
         value += row.getOrNull(valueIndex).orEmpty().replace(",", "").replace("₹", "").trim().toDoubleOrNull() ?: 0.0
@@ -156,11 +153,9 @@ private fun parseCsvLine(line: String): List<String> {
             '"' -> if (quoted && i + 1 < line.length && line[i + 1] == '"') { cell.append('"'); i++ } else quoted = !quoted
             ',' -> if (quoted) cell.append(c) else { result += cell.toString(); cell.clear() }
             else -> cell.append(c)
-        }
-        i++
+        }; i++
     }
-    result += cell.toString()
-    return result
+    result += cell.toString(); return result
 }
 
 private fun money(v: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).format(v)
