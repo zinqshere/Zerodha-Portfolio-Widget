@@ -1,0 +1,83 @@
+package com.zinqshere.zerodhaportfoliowidget.data
+
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+
+class PortfolioStore(context: Context) {
+    private val appContext = context.applicationContext
+    private val prefs = EncryptedSharedPreferences.create(
+        appContext, "portfolio_secrets",
+        MasterKey.Builder(appContext).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+
+    fun saveKite(apiKey: String, accessToken: String) = prefs.edit()
+        .putString("api_key", apiKey).putString("access_token", accessToken).apply()
+
+    fun clearKite() = prefs.edit()
+        .remove("api_key").remove("access_token").apply()
+
+    fun apiKey() = prefs.getString("api_key", "") ?: ""
+    fun accessToken() = prefs.getString("access_token", "") ?: ""
+    fun saveBackendUrl(url: String) = prefs.edit().putString("backend_url", url.trim().trimEnd('/')).apply()
+    fun backendUrl() = prefs.getString("backend_url", "") ?: ""
+
+    fun saveRefreshInterval(minutes: Long) {
+        prefs.edit().putLong("refresh_interval_minutes", minutes).apply()
+
+        // Changing the interval should take effect immediately rather than waiting
+        // for the next periodic WorkManager window. The periodic schedule is still
+        // managed by MainActivity.scheduleRefresh().
+        if (apiKey().isNotBlank() && accessToken().isNotBlank()) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+            val request = OneTimeWorkRequestBuilder<PortfolioRefreshWorker>()
+                .setConstraints(constraints)
+                .build()
+            WorkManager.getInstance(appContext).enqueueUniqueWork(
+                "portfolio-refresh-now",
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
+    }
+
+    fun refreshIntervalMinutes(): Long = prefs.getLong("refresh_interval_minutes", 30L)
+
+    fun saveCoin(invested: Double, value: Double) = prefs.edit()
+        .putLong("coin_invested", invested.toBits()).putLong("coin_value", value.toBits()).apply()
+    fun coinInvested() = Double.fromBits(prefs.getLong("coin_invested", 0L))
+    fun coinValue() = Double.fromBits(prefs.getLong("coin_value", 0L))
+
+    fun saveTheme(theme: String) = prefs.edit().putString("theme", theme).apply()
+    fun theme() = prefs.getString("theme", "dark_monet") ?: "dark_monet"
+
+    fun saveSnapshot(s: PortfolioSnapshot) = prefs.edit()
+        .putLong("equity_value", s.equityValue.toBits())
+        .putLong("equity_invested", s.equityInvested.toBits())
+        .putLong("equity_pnl", s.equityPnl.toBits())
+        .putLong("equity_day_pnl", s.equityDayPnl.toBits())
+        .putLong("coin_value", s.coinValue.toBits())
+        .putLong("coin_invested", s.coinInvested.toBits())
+        .putLong("coin_pnl", s.coinPnl.toBits())
+        .putLong("updated_at", s.updatedAt).apply()
+
+    fun cachedSnapshot() = PortfolioSnapshot(
+        equityValue = Double.fromBits(prefs.getLong("equity_value", 0L)),
+        equityInvested = Double.fromBits(prefs.getLong("equity_invested", 0L)),
+        equityPnl = Double.fromBits(prefs.getLong("equity_pnl", 0L)),
+        equityDayPnl = Double.fromBits(prefs.getLong("equity_day_pnl", 0L)),
+        coinValue = Double.fromBits(prefs.getLong("coin_value", 0L)),
+        coinInvested = Double.fromBits(prefs.getLong("coin_invested", 0L)),
+        coinPnl = Double.fromBits(prefs.getLong("coin_pnl", 0L)),
+        updatedAt = prefs.getLong("updated_at", 0L)
+    )
+}
