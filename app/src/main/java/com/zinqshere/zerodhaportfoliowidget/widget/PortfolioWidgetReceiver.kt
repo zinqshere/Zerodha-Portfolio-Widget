@@ -69,12 +69,7 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             }.start()
         }
 
-        private fun animateRefreshIcon(
-            context: Context,
-            manager: AppWidgetManager,
-            ids: IntArray,
-            snapshot: PortfolioSnapshot
-        ) {
+        private fun animateRefreshIcon(context: Context, manager: AppWidgetManager, ids: IntArray, snapshot: PortfolioSnapshot) {
             Thread {
                 for (frame in 0 until FRAME_COUNT) {
                     if (frame > 0) Thread.sleep(FRAME_DELAY_MS)
@@ -83,13 +78,7 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             }.start()
         }
 
-        private fun render(
-            context: Context,
-            manager: AppWidgetManager,
-            ids: IntArray,
-            s: PortfolioSnapshot,
-            refreshFrame: Int = 0
-        ) {
+        private fun render(context: Context, manager: AppWidgetManager, ids: IntArray, s: PortfolioSnapshot, refreshFrame: Int = 0) {
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_portfolio)
                 val theme = WidgetAppearance.theme(context, id)
@@ -130,10 +119,8 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 views.setTextColor(R.id.widget_mf, foreground)
                 views.setTextColor(R.id.widget_equity_value_label, secondary)
                 views.setTextColor(R.id.widget_equity_returns_label, secondary)
-                views.setTextColor(R.id.widget_equity_percent_label, secondary)
                 views.setTextColor(R.id.widget_mf_value_label, secondary)
                 views.setTextColor(R.id.widget_mf_returns_label, secondary)
-                views.setTextColor(R.id.widget_mf_percent_label, secondary)
                 views.setTextColor(R.id.widget_equity_pnl, if (s.equityPnl >= 0) positive else negative)
                 views.setTextColor(R.id.widget_mf_pnl, if (s.coinPnl >= 0) positive else negative)
                 views.setTextColor(R.id.widget_equity_return_percent, if (s.equityPnl >= 0) positive else negative)
@@ -150,10 +137,7 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_mf_pnl, signedMoney(s.coinPnl))
                 views.setTextViewText(R.id.widget_equity_return_percent, signedPercent(percent(s.equityPnl, s.equityInvested)))
                 views.setTextViewText(R.id.widget_mf_return_percent, signedPercent(percent(s.coinPnl, s.coinInvested)))
-                views.setTextViewText(
-                    R.id.widget_updated,
-                    if (s.updatedAt == 0L) "Connect Zerodha in app" else "Updated ${relativeTime(s.updatedAt)}"
-                )
+                views.setTextViewText(R.id.widget_updated, if (s.updatedAt == 0L) "Connect Zerodha in app" else "Updated ${relativeTime(s.updatedAt)}")
 
                 val compact = layout == WidgetAppearance.COMPACT
                 val dashboard = layout == WidgetAppearance.DASHBOARD
@@ -173,28 +157,13 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_refresh, refreshGlyph(refreshFrame))
 
                 val openIntent = Intent(context, MainActivity::class.java)
-                views.setOnClickPendingIntent(
-                    R.id.widget_value,
-                    PendingIntent.getActivity(context, id, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                )
-                views.setOnClickPendingIntent(
-                    R.id.widget_equity,
-                    PendingIntent.getActivity(context, id + 10000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                )
-                views.setOnClickPendingIntent(
-                    R.id.widget_mf,
-                    PendingIntent.getActivity(context, id + 20000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                )
+                views.setOnClickPendingIntent(R.id.widget_value, PendingIntent.getActivity(context, id, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+                views.setOnClickPendingIntent(R.id.widget_equity, PendingIntent.getActivity(context, id + 10000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+                views.setOnClickPendingIntent(R.id.widget_mf, PendingIntent.getActivity(context, id + 20000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
 
                 val refreshIntent = Intent(context, PortfolioWidgetReceiver::class.java).setAction(ACTION_REFRESH)
-                views.setOnClickPendingIntent(
-                    R.id.widget_refresh,
-                    PendingIntent.getBroadcast(context, id + 100000, refreshIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                )
-                views.setOnClickPendingIntent(
-                    R.id.widget_content,
-                    PendingIntent.getActivity(context, id + 30000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                )
+                views.setOnClickPendingIntent(R.id.widget_refresh, PendingIntent.getBroadcast(context, id + 100000, refreshIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+                views.setOnClickPendingIntent(R.id.widget_content, PendingIntent.getActivity(context, id + 30000, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
                 manager.updateAppWidget(id, views)
             }
         }
@@ -204,16 +173,13 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             return if (frame <= 0) glyphs[0] else glyphs[((frame - 1) / 3) % glyphs.size]
         }
 
-        private fun percent(pnl: Double, invested: Double): Double =
-            if (invested == 0.0) 0.0 else pnl / invested * 100.0
+        private fun percent(pnl: Double, invested: Double): Double = if (invested == 0.0) 0.0 else pnl / invested * 100.0
 
-        private fun signedPercent(value: Double): String =
-            if (value >= 0) "+${format(value)}%" else "${format(value)}%"
+        private fun signedPercent(value: Double): String = if (value >= 0) "+${format(value)}%" else "${format(value)}%"
 
         private fun format(value: Double): String = "%.2f".format(Locale.US, value)
 
-        private fun money(value: Double): String =
-            NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply { maximumFractionDigits = 0 }.format(value)
+        private fun money(value: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply { maximumFractionDigits = 0 }.format(value)
 
         private fun compactMoney(value: Double): String {
             val abs = kotlin.math.abs(value)
@@ -225,8 +191,7 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             }
         }
 
-        private fun signedMoney(value: Double): String =
-            if (value >= 0) "+${money(value)}" else "-${money(-value)}"
+        private fun signedMoney(value: Double): String = if (value >= 0) "+${money(value)}" else "-${money(-value)}"
 
         private fun relativeTime(timestamp: Long): String {
             if (timestamp <= 0L) return "unknown"
