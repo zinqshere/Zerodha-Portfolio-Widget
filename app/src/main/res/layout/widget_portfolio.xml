@@ -26,6 +26,15 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/widget_updated"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingEnd="8dp"
+            android:text="Updated just now"
+            android:textSize="10sp"
+            android:gravity="center_vertical" />
+
+        <TextView
             android:id="@+id/widget_refresh"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -166,12 +175,4 @@
         android:layout_marginTop="6dp"
         android:scaleType="fitXY"
         android:contentDescription="Portfolio performance" />
-
-    <TextView
-        android:id="@+id/widget_updated"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
-        android:text="Connect Zerodha in app"
-        android:textSize="10sp" />
 </LinearLayout>
