@@ -29,7 +29,7 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_REFRESH) refresh(context)
+        if (intent.action == ACTION_REFRESH) refresh(context, animate = true)
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
@@ -39,25 +39,29 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        refresh(context)
+        refresh(context, animate = false)
     }
 
     companion object {
         private const val ACTION_REFRESH = "com.zinqshere.zerodhaportfoliowidget.widget.REFRESH"
 
-        fun refresh(context: Context) {
+        fun refresh(context: Context, animate: Boolean = false) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, PortfolioWidgetReceiver::class.java))
             if (ids.isEmpty()) return
             val store = PortfolioStore(context)
             val cached = store.cachedSnapshot()
-            render(context, manager, ids, cached)
+            render(context, manager, ids, cached, refreshing = animate)
+
             Thread {
                 runCatching { PortfolioRepository(store).refresh() }
                     .onSuccess {
                         store.saveSnapshot(it)
                         WidgetAppearance.recordSnapshot(context, it)
-                        render(context, manager, ids, it)
+                        render(context, manager, ids, it, refreshing = false)
+                    }
+                    .onFailure {
+                        render(context, manager, ids, store.cachedSnapshot(), refreshing = false)
                     }
             }.start()
         }
@@ -66,7 +70,8 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             context: Context,
             manager: AppWidgetManager,
             ids: IntArray,
-            s: PortfolioSnapshot
+            s: PortfolioSnapshot,
+            refreshing: Boolean = false
         ) {
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_portfolio)
@@ -97,8 +102,6 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 val positive = if (isLight) Color.rgb(24, 120, 65) else Color.rgb(145, 235, 164)
                 val negative = if (isLight) Color.rgb(180, 48, 48) else Color.rgb(255, 150, 150)
 
-                // The layout root is the actual widget background. RemoteViews can
-                // safely invoke setBackgroundColor on the root LinearLayout.
                 views.setInt(R.id.widget_content, "setBackgroundColor", background)
                 views.setTextColor(R.id.widget_title, foreground)
                 views.setTextColor(R.id.widget_value, foreground)
@@ -139,6 +142,11 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                     if (bitmap != null) views.setImageViewBitmap(R.id.widget_chart, bitmap)
                     else views.setViewVisibility(R.id.widget_chart, View.GONE)
                 }
+
+                // Android launcher widgets do not provide arbitrary view animations,
+                // so we use a frame-based visual animation driven by successive
+                // RemoteViews updates while the refresh request is in flight.
+                views.setTextViewText(R.id.widget_refresh, if (refreshing) "⟳" else "↻")
 
                 val openIntent = Intent(context, MainActivity::class.java)
                 views.setOnClickPendingIntent(
