@@ -19,8 +19,6 @@ import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRepository
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioStore
 import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 class PortfolioWidgetReceiver : AppWidgetProvider() {
@@ -46,8 +44,8 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
 
     companion object {
         private const val ACTION_REFRESH = "com.zinqshere.zerodhaportfoliowidget.widget.REFRESH"
-        private const val ANIMATION_FRAMES = 8
-        private const val ANIMATION_DELAY_MS = 80L
+        private const val FRAME_COUNT = 12
+        private const val FRAME_DELAY_MS = 70L
 
         fun refresh(context: Context, animate: Boolean = false) {
             val manager = AppWidgetManager.getInstance(context)
@@ -55,38 +53,34 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             if (ids.isEmpty()) return
             val store = PortfolioStore(context)
             val cached = store.cachedSnapshot()
-
-            if (animate) {
-                animateRefresh(context, manager, ids, cached)
-            } else {
-                render(context, manager, ids, cached, refreshingFrame = 0)
-            }
+            if (animate) animateRefreshIcon(context, manager, ids, cached)
+            else render(context, manager, ids, cached)
 
             Thread {
                 runCatching { PortfolioRepository(store).refresh() }
                     .onSuccess {
                         store.saveSnapshot(it)
                         WidgetAppearance.recordSnapshot(context, it)
-                        render(context, manager, ids, it, refreshingFrame = 0)
+                        render(context, manager, ids, it, refreshFrame = 0)
                     }
                     .onFailure {
-                        render(context, manager, ids, store.cachedSnapshot(), refreshingFrame = 0)
+                        render(context, manager, ids, store.cachedSnapshot(), refreshFrame = 0)
                     }
             }.start()
         }
 
-        private fun animateRefresh(
+        private fun animateRefreshIcon(
             context: Context,
             manager: AppWidgetManager,
             ids: IntArray,
             snapshot: PortfolioSnapshot
         ) {
-            repeat(ANIMATION_FRAMES) { frame ->
-                Thread {
-                    if (frame > 0) Thread.sleep(frame * ANIMATION_DELAY_MS)
-                    render(context, manager, ids, snapshot, refreshingFrame = frame)
-                }.start()
-            }
+            Thread {
+                for (frame in 0 until FRAME_COUNT) {
+                    if (frame > 0) Thread.sleep(FRAME_DELAY_MS)
+                    render(context, manager, ids, snapshot, refreshFrame = frame)
+                }
+            }.start()
         }
 
         private fun render(
@@ -94,7 +88,7 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             manager: AppWidgetManager,
             ids: IntArray,
             s: PortfolioSnapshot,
-            refreshingFrame: Int = 0
+            refreshFrame: Int = 0
         ) {
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_portfolio)
@@ -166,11 +160,10 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                     else views.setViewVisibility(R.id.widget_chart, View.GONE)
                 }
 
-                // RemoteViews cannot run an arbitrary rotation animation. Instead,
-                // render successive frames of the same 36dp refresh control. The
-                // glyph itself rotates conceptually around its fixed center while
-                // the view size remains unchanged, so there is no button resizing.
-                views.setTextViewText(R.id.widget_refresh, if (refreshingFrame == 0) "↻" else refreshGlyph(refreshingFrame))
+                // Rotate the refresh glyph around its own center using successive
+                // glyph frames. The view remains exactly 36dp square, so its size
+                // and the surrounding layout never change during the animation.
+                views.setTextViewText(R.id.widget_refresh, refreshGlyph(refreshFrame))
 
                 val openIntent = Intent(context, MainActivity::class.java)
                 views.setOnClickPendingIntent(
@@ -199,15 +192,9 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             }
         }
 
-        private fun refreshGlyph(frame: Int): String = when ((frame - 1) % 8) {
-            0 -> "↻"
-            1 -> "⟳"
-            2 -> "↻"
-            3 -> "⟳"
-            4 -> "↻"
-            5 -> "⟳"
-            6 -> "↻"
-            else -> "⟳"
+        private fun refreshGlyph(frame: Int): String {
+            val glyphs = arrayOf("↻", "↪", "↻", "↩")
+            return if (frame <= 0) glyphs[0] else glyphs[((frame - 1) / 3) % glyphs.size]
         }
 
         private fun percent(pnl: Double, invested: Double): Double =
@@ -235,15 +222,15 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             if (value >= 0) "+${money(value)}" else "-${money(-value)}"
 
         private fun relativeTime(timestamp: Long): String {
-            if (timestamp <= 0L) return "not updated"
-            val delta = System.currentTimeMillis() - timestamp
-            if (delta < 0L) return "just now"
-            val minutes = delta / 60000L
+            if (timestamp <= 0L) return "unknown"
+            val elapsed = System.currentTimeMillis() - timestamp
+            if (elapsed < 0L) return "just now"
+            val minutes = elapsed / 60000L
             return when {
-                minutes < 1L -> "just now"
-                minutes < 60L -> "${minutes}m ago"
-                minutes < 1440L -> "${minutes / 60L}h ago"
-                else -> "${minutes / 1440L}d ago"
+                minutes < 1 -> "just now"
+                minutes < 60 -> "${minutes}m ago"
+                minutes < 1440 -> "${minutes / 60}h ago"
+                else -> "${minutes / 1440}d ago"
             }
         }
 
