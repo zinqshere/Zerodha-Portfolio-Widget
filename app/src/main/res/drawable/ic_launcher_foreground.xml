@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@drawable/zerodha_launcher_icon"
-    android:gravity="fill" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#4EF0A5" android:pathData="M23,61 C23,59 24,57 26,55 L39,44 L50,52 L75,28 L81,34 L51,63 L39,55 L30,64 C28,66 25,65 23,61 Z" />
+    <path android:fillColor="#4EF0A5" android:pathData="M76,27 L91,27 L91,42 L84,42 L84,34 L76,34 Z" />
+    <path android:fillColor="#4EF0A5" android:pathData="M27,73 L27,65 L37,65 L37,73 Z M43,73 L43,54 L53,54 L53,73 Z M59,73 L59,43 L69,43 L69,73 Z" />
+</vector>
