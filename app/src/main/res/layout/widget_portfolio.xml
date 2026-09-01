@@ -133,27 +133,28 @@
                 android:text="Returns"
                 android:textSize="9sp" />
 
-            <TextView
-                android:id="@+id/widget_equity_pnl"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="+₹—"
-                android:textSize="10sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/widget_equity_percent_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Returns %"
-                android:textSize="9sp" />
+                <TextView
+                    android:id="@+id/widget_equity_pnl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+₹—"
+                    android:textSize="10sp" />
 
-            <TextView
-                android:id="@+id/widget_equity_return_percent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="+—%"
-                android:textSize="10sp"
-                android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/widget_equity_return_percent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="+—%"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView
@@ -200,27 +201,28 @@
                 android:text="Returns"
                 android:textSize="9sp" />
 
-            <TextView
-                android:id="@+id/widget_mf_pnl"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="+₹—"
-                android:textSize="10sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/widget_mf_percent_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Returns %"
-                android:textSize="9sp" />
+                <TextView
+                    android:id="@+id/widget_mf_pnl"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+₹—"
+                    android:textSize="10sp" />
 
-            <TextView
-                android:id="@+id/widget_mf_return_percent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="+—%"
-                android:textSize="10sp"
-                android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/widget_mf_return_percent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="+—%"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
