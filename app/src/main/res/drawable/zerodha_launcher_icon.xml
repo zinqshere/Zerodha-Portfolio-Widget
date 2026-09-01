@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Solid Zerodha-blue launcher tile. Kept fully opaque so no launcher can
+         render a transparent/blank icon. -->
+    <path
+        android:fillColor="#387ED1"
+        android:pathData="M16,4 L92,4 C98.627,4 104,9.373 104,16 L104,92 C104,98.627 98.627,104 92,104 L16,104 C9.373,104 4,98.627 4,92 L4,16 C4,9.373 9.373,4 16,4 Z" />
+
+    <!-- High-contrast geometric Z mark. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,26 L84,26 L84,39 L43,78 L84,78 L84,92 L24,92 C19.3,92 16.9,86.2 20.3,82.9 L63,40 L24,40 Z" />
+</vector>
