@@ -23,6 +23,11 @@ class PortfolioStore(context: Context) {
     fun saveBackendUrl(url: String) = prefs.edit().putString("backend_url", url.trim().trimEnd('/')).apply()
     fun backendUrl() = prefs.getString("backend_url", "") ?: ""
 
+    fun saveRefreshInterval(minutes: Long) = prefs.edit()
+        .putLong("refresh_interval_minutes", minutes).apply()
+
+    fun refreshIntervalMinutes(): Long = prefs.getLong("refresh_interval_minutes", 30L)
+
     fun saveCoin(invested: Double, value: Double) = prefs.edit()
         .putLong("coin_invested", invested.toBits()).putLong("coin_value", value.toBits()).apply()
     fun coinInvested() = Double.fromBits(prefs.getLong("coin_invested", 0L))
