@@ -5,8 +5,8 @@
     <application
         android:theme="@style/Theme.ZerodhaPortfolioWidget"
         android:label="Zerodha Portfolio Widget"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:icon="@drawable/zerodha_launcher_icon"
+        android:roundIcon="@drawable/zerodha_launcher_icon"
         android:allowBackup="false"
         android:supportsRtl="true">
 
