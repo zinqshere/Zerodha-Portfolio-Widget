@@ -3,11 +3,17 @@ package com.zinqshere.zerodhaportfoliowidget.data
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 
 class PortfolioStore(context: Context) {
+    private val appContext = context.applicationContext
     private val prefs = EncryptedSharedPreferences.create(
-        context, "portfolio_secrets",
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        appContext, "portfolio_secrets",
+        MasterKey.Builder(appContext).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
@@ -23,8 +29,26 @@ class PortfolioStore(context: Context) {
     fun saveBackendUrl(url: String) = prefs.edit().putString("backend_url", url.trim().trimEnd('/')).apply()
     fun backendUrl() = prefs.getString("backend_url", "") ?: ""
 
-    fun saveRefreshInterval(minutes: Long) = prefs.edit()
-        .putLong("refresh_interval_minutes", minutes).apply()
+    fun saveRefreshInterval(minutes: Long) {
+        prefs.edit().putLong("refresh_interval_minutes", minutes).apply()
+
+        // Changing the interval should take effect immediately rather than waiting
+        // for the next periodic WorkManager window. The periodic schedule is still
+        // managed by MainActivity.scheduleRefresh().
+        if (apiKey().isNotBlank() && accessToken().isNotBlank()) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+            val request = OneTimeWorkRequestBuilder<PortfolioRefreshWorker>()
+                .setConstraints(constraints)
+                .build()
+            WorkManager.getInstance(appContext).enqueueUniqueWork(
+                "portfolio-refresh-now",
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
+    }
 
     fun refreshIntervalMinutes(): Long = prefs.getLong("refresh_interval_minutes", 30L)
 
