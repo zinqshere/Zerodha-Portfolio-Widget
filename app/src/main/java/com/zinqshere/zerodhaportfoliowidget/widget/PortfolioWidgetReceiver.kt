@@ -128,8 +128,16 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 views.setTextColor(R.id.widget_refresh, secondary)
                 views.setTextColor(R.id.widget_equity, foreground)
                 views.setTextColor(R.id.widget_mf, foreground)
+                views.setTextColor(R.id.widget_equity_value_label, secondary)
+                views.setTextColor(R.id.widget_equity_returns_label, secondary)
+                views.setTextColor(R.id.widget_equity_percent_label, secondary)
+                views.setTextColor(R.id.widget_mf_value_label, secondary)
+                views.setTextColor(R.id.widget_mf_returns_label, secondary)
+                views.setTextColor(R.id.widget_mf_percent_label, secondary)
                 views.setTextColor(R.id.widget_equity_pnl, if (s.equityPnl >= 0) positive else negative)
                 views.setTextColor(R.id.widget_mf_pnl, if (s.coinPnl >= 0) positive else negative)
+                views.setTextColor(R.id.widget_equity_return_percent, if (s.equityPnl >= 0) positive else negative)
+                views.setTextColor(R.id.widget_mf_return_percent, if (s.coinPnl >= 0) positive else negative)
                 views.setTextColor(R.id.widget_equity_label, secondary)
                 views.setTextColor(R.id.widget_mf_label, secondary)
 
@@ -138,8 +146,10 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                 views.setTextViewText(R.id.widget_today, "Today\n${signedMoney(s.equityDayPnl)}  ${signedPercent(percent(s.equityDayPnl, s.equityInvested))}")
                 views.setTextViewText(R.id.widget_equity, compactMoney(s.equityValue))
                 views.setTextViewText(R.id.widget_mf, compactMoney(s.coinValue))
-                views.setTextViewText(R.id.widget_equity_pnl, signedPercent(percent(s.equityPnl, s.equityInvested)))
-                views.setTextViewText(R.id.widget_mf_pnl, signedPercent(percent(s.coinPnl, s.coinInvested)))
+                views.setTextViewText(R.id.widget_equity_pnl, signedMoney(s.equityPnl))
+                views.setTextViewText(R.id.widget_mf_pnl, signedMoney(s.coinPnl))
+                views.setTextViewText(R.id.widget_equity_return_percent, signedPercent(percent(s.equityPnl, s.equityInvested)))
+                views.setTextViewText(R.id.widget_mf_return_percent, signedPercent(percent(s.coinPnl, s.coinInvested)))
                 views.setTextViewText(
                     R.id.widget_updated,
                     if (s.updatedAt == 0L) "Connect Zerodha in app" else "Updated ${relativeTime(s.updatedAt)}"
@@ -160,9 +170,6 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                     else views.setViewVisibility(R.id.widget_chart, View.GONE)
                 }
 
-                // Rotate the refresh glyph around its own center using successive
-                // glyph frames. The view remains exactly 36dp square, so its size
-                // and the surrounding layout never change during the animation.
                 views.setTextViewText(R.id.widget_refresh, refreshGlyph(refreshFrame))
 
                 val openIntent = Intent(context, MainActivity::class.java)
