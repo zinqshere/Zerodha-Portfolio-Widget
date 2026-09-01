@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -54,6 +53,14 @@ private enum class PortfolioTheme(val key: String, val label: String) {
     DARK_MONET("dark_monet", "Dark Monet")
 }
 
+private enum class RefreshInterval(val minutes: Long, val label: String) {
+    FIFTEEN(15, "Every 15 minutes"),
+    THIRTY(30, "Every 30 minutes"),
+    SIXTY(60, "Every 1 hour"),
+    ONE_TWENTY(120, "Every 2 hours"),
+    TWO_FORTY(240, "Every 4 hours")
+}
+
 class MainActivity : ComponentActivity() {
     private lateinit var store: PortfolioStore
     private var authVersion by mutableStateOf(0)
@@ -94,8 +101,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         fun scheduleRefresh(context: Context) {
-            val request = PeriodicWorkRequestBuilder<PortfolioRefreshWorker>(30, TimeUnit.MINUTES)
-                .setInitialDelay(5, TimeUnit.MINUTES)
+            val minutes = PortfolioStore(context).refreshIntervalMinutes().coerceIn(15L, 1440L)
+            val request = PeriodicWorkRequestBuilder<PortfolioRefreshWorker>(minutes, TimeUnit.MINUTES)
+                .setInitialDelay(minutes, TimeUnit.MINUTES)
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 "portfolio-refresh", ExistingPeriodicWorkPolicy.UPDATE, request
@@ -121,6 +129,12 @@ private fun PortfolioScreen(store: PortfolioStore, authVersion: Int) {
     var connectionError by remember { mutableStateOf<String?>(null) }
     var selectedTheme by remember {
         mutableStateOf(PortfolioTheme.entries.firstOrNull { it.key == store.theme() } ?: PortfolioTheme.DARK_MONET)
+    }
+    var refreshInterval by remember {
+        mutableStateOf(
+            RefreshInterval.entries.firstOrNull { it.minutes == store.refreshIntervalMinutes() }
+                ?: RefreshInterval.THIRTY
+        )
     }
     var showSettings by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -216,6 +230,12 @@ private fun PortfolioScreen(store: PortfolioStore, authVersion: Int) {
                     selectedTheme = it
                     store.saveTheme(it.key)
                 },
+                refreshInterval = refreshInterval,
+                onRefreshIntervalSelected = {
+                    refreshInterval = it
+                    store.saveRefreshInterval(it.minutes)
+                    MainActivity.scheduleRefresh(context)
+                },
                 backendUrl = backendUrl,
                 onBackendUrlChange = { backendUrl = it; connectionError = null },
                 connected = store.accessToken().isNotBlank(),
@@ -302,6 +322,8 @@ private fun MetricWithPercent(label: String, value: Double, percent: Double) {
 private fun SettingsDialog(
     selectedTheme: PortfolioTheme,
     onThemeSelected: (PortfolioTheme) -> Unit,
+    refreshInterval: RefreshInterval,
+    onRefreshIntervalSelected: (RefreshInterval) -> Unit,
     backendUrl: String,
     onBackendUrlChange: (String) -> Unit,
     connected: Boolean,
@@ -343,6 +365,34 @@ private fun SettingsDialog(
                         }
                     }
                 }
+
+                HorizontalDivider()
+                Text("Portfolio refresh", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Choose how often the app checks Kite for updated equity and mutual-fund values in the background.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                RefreshInterval.entries.forEach { interval ->
+                    val selected = refreshInterval == interval
+                    OutlinedButton(
+                        onClick = { onRefreshIntervalSelected(interval) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(interval.label, modifier = Modifier.weight(1f))
+                            if (selected) Text("✓", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Text(
+                    "Currently: ${refreshInterval.label}. Android may delay background refreshes slightly to protect battery.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
                 HorizontalDivider()
                 Text("Zerodha connection", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
