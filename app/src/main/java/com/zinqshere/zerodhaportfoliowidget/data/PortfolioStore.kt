@@ -14,6 +14,10 @@ class PortfolioStore(context: Context) {
 
     fun saveKite(apiKey: String, accessToken: String) = prefs.edit()
         .putString("api_key", apiKey).putString("access_token", accessToken).apply()
+
+    fun clearKite() = prefs.edit()
+        .remove("api_key").remove("access_token").apply()
+
     fun apiKey() = prefs.getString("api_key", "") ?: ""
     fun accessToken() = prefs.getString("access_token", "") ?: ""
     fun saveBackendUrl(url: String) = prefs.edit().putString("backend_url", url.trim().trimEnd('/')).apply()
