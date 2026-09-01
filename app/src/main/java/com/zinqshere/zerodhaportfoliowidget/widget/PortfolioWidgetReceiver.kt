@@ -19,6 +19,8 @@ import com.zinqshere.zerodhaportfoliowidget.data.PortfolioRepository
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioSnapshot
 import com.zinqshere.zerodhaportfoliowidget.data.PortfolioStore
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 class PortfolioWidgetReceiver : AppWidgetProvider() {
@@ -44,6 +46,8 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
 
     companion object {
         private const val ACTION_REFRESH = "com.zinqshere.zerodhaportfoliowidget.widget.REFRESH"
+        private const val ANIMATION_FRAMES = 8
+        private const val ANIMATION_DELAY_MS = 80L
 
         fun refresh(context: Context, animate: Boolean = false) {
             val manager = AppWidgetManager.getInstance(context)
@@ -51,19 +55,38 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             if (ids.isEmpty()) return
             val store = PortfolioStore(context)
             val cached = store.cachedSnapshot()
-            render(context, manager, ids, cached, refreshing = animate)
+
+            if (animate) {
+                animateRefresh(context, manager, ids, cached)
+            } else {
+                render(context, manager, ids, cached, refreshingFrame = 0)
+            }
 
             Thread {
                 runCatching { PortfolioRepository(store).refresh() }
                     .onSuccess {
                         store.saveSnapshot(it)
                         WidgetAppearance.recordSnapshot(context, it)
-                        render(context, manager, ids, it, refreshing = false)
+                        render(context, manager, ids, it, refreshingFrame = 0)
                     }
                     .onFailure {
-                        render(context, manager, ids, store.cachedSnapshot(), refreshing = false)
+                        render(context, manager, ids, store.cachedSnapshot(), refreshingFrame = 0)
                     }
             }.start()
+        }
+
+        private fun animateRefresh(
+            context: Context,
+            manager: AppWidgetManager,
+            ids: IntArray,
+            snapshot: PortfolioSnapshot
+        ) {
+            repeat(ANIMATION_FRAMES) { frame ->
+                Thread {
+                    if (frame > 0) Thread.sleep(frame * ANIMATION_DELAY_MS)
+                    render(context, manager, ids, snapshot, refreshingFrame = frame)
+                }.start()
+            }
         }
 
         private fun render(
@@ -71,7 +94,7 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             manager: AppWidgetManager,
             ids: IntArray,
             s: PortfolioSnapshot,
-            refreshing: Boolean = false
+            refreshingFrame: Int = 0
         ) {
             ids.forEach { id ->
                 val views = RemoteViews(context.packageName, R.layout.widget_portfolio)
@@ -143,10 +166,11 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
                     else views.setViewVisibility(R.id.widget_chart, View.GONE)
                 }
 
-                // Android launcher widgets do not provide arbitrary view animations,
-                // so we use a frame-based visual animation driven by successive
-                // RemoteViews updates while the refresh request is in flight.
-                views.setTextViewText(R.id.widget_refresh, if (refreshing) "⟳" else "↻")
+                // RemoteViews cannot run an arbitrary rotation animation. Instead,
+                // render successive frames of the same 36dp refresh control. The
+                // glyph itself rotates conceptually around its fixed center while
+                // the view size remains unchanged, so there is no button resizing.
+                views.setTextViewText(R.id.widget_refresh, if (refreshingFrame == 0) "↻" else refreshGlyph(refreshingFrame))
 
                 val openIntent = Intent(context, MainActivity::class.java)
                 views.setOnClickPendingIntent(
@@ -175,6 +199,17 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             }
         }
 
+        private fun refreshGlyph(frame: Int): String = when ((frame - 1) % 8) {
+            0 -> "↻"
+            1 -> "⟳"
+            2 -> "↻"
+            3 -> "⟳"
+            4 -> "↻"
+            5 -> "⟳"
+            6 -> "↻"
+            else -> "⟳"
+        }
+
         private fun percent(pnl: Double, invested: Double): Double =
             if (invested == 0.0) 0.0 else pnl / invested * 100.0
 
@@ -200,12 +235,15 @@ class PortfolioWidgetReceiver : AppWidgetProvider() {
             if (value >= 0) "+${money(value)}" else "-${money(-value)}"
 
         private fun relativeTime(timestamp: Long): String {
-            val minutes = ((System.currentTimeMillis() - timestamp) / 60000L).coerceAtLeast(0)
+            if (timestamp <= 0L) return "not updated"
+            val delta = System.currentTimeMillis() - timestamp
+            if (delta < 0L) return "just now"
+            val minutes = delta / 60000L
             return when {
-                minutes < 1 -> "just now"
-                minutes < 60 -> "${minutes}m ago"
-                minutes < 1440 -> "${minutes / 60}h ago"
-                else -> "${minutes / 1440}d ago"
+                minutes < 1L -> "just now"
+                minutes < 60L -> "${minutes}m ago"
+                minutes < 1440L -> "${minutes / 60L}h ago"
+                else -> "${minutes / 1440L}d ago"
             }
         }
 
