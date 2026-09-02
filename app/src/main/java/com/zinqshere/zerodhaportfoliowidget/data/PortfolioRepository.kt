@@ -35,15 +35,18 @@ class PortfolioRepository(private val store: PortfolioStore) {
                 message.contains("invalid token", ignoreCase = true)
 
             if (authFailure) {
-                // Kite access tokens expire daily. Do not keep retrying a known-invalid
-                // session or present it as connected after Kite has rejected it.
-                store.clearKite()
-                throw IllegalStateException(
-                    "Kite session expired or is invalid. Tap Reconnect Zerodha in Settings to sign in again.",
-                    error
-                )
+                // Keep the saved session and cached snapshot. The Kite token may have
+                // expired, but deleting it here makes the app look disconnected and
+                // discards useful state before the user explicitly reconnects.
+                throw KiteSessionExpiredException(error)
             }
             throw error
         }
     }
 }
+
+class KiteSessionExpiredException(cause: Throwable) :
+    IllegalStateException(
+        "Kite session expired or is invalid. Your last portfolio data is still available. Tap Reconnect Zerodha in Settings to sign in again.",
+        cause
+    )
