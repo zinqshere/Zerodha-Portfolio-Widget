@@ -4,7 +4,7 @@
 
     <application
         android:theme="@style/Theme.ZerodhaPortfolioWidget"
-        android:label="Zerodha Portfolio Widget"
+        android:label="Zerodha Portfolio Widget (Test)"
         android:icon="@drawable/zerodha_launcher_icon"
         android:roundIcon="@drawable/zerodha_launcher_icon"
         android:allowBackup="false"
