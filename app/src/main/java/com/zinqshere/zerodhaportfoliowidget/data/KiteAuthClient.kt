@@ -13,12 +13,15 @@ object KiteAuthClient {
     private val client = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun openLogin(context: Context, backendUrl: String) {
+    fun openLogin(context: Context, backendUrl: String, accountId: String? = null) {
         val base = requireBase(backendUrl)
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$base/api/kite/login")))
+        val uri = Uri.parse("$base/api/kite/login").buildUpon().apply {
+            if (!accountId.isNullOrBlank()) appendQueryParameter("state", accountId)
+        }.build()
+        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
     }
 
-    fun exchangeCode(backendUrl: String, code: String): Pair<String, String> {
+    fun exchangeCode(backendUrl: String, code: String): Triple<String, String, String?> {
         val base = requireBase(backendUrl)
         val request = Request.Builder().url("$base/api/kite/exchange?code=${Uri.encode(code)}").get().build()
         client.newCall(request).execute().use { response ->
@@ -27,7 +30,7 @@ object KiteAuthClient {
             val data = json.parseToJsonElement(body).jsonObject
             val apiKey = data["api_key"]?.jsonPrimitive?.content ?: error("Missing API key")
             val accessToken = data["access_token"]?.jsonPrimitive?.content ?: error("Missing access token")
-            return apiKey to accessToken
+            return Triple(apiKey, accessToken, data["state"]?.jsonPrimitive?.content)
         }
     }
 
