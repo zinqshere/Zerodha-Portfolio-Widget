@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { consumeTransaction } from "../../lib/auth-store.js";
 
 function encryptCode(payload, keyHex) {
   const key = Buffer.from(keyHex, "hex");
@@ -12,13 +13,16 @@ function encryptCode(payload, keyHex) {
 
 export default async function handler(req, res) {
   const requestToken = req.query?.request_token;
+  const state = req.query?.state;
   const apiKey = process.env.KITE_API_KEY;
   const apiSecret = process.env.KITE_API_SECRET;
   const codeKey = process.env.KITE_CODE_KEY;
-  const appRedirect = process.env.APP_REDIRECT_URI || "zerodhaportfolio://oauth";
 
-  if (!requestToken) return res.status(400).send("Missing request_token");
+  if (!requestToken || !state) return res.status(400).send("Missing Kite callback parameters");
   if (!apiKey || !apiSecret || !codeKey) return res.status(500).send("Kite backend credentials are not configured");
+
+  const transaction = consumeTransaction(state);
+  if (!transaction) return res.status(400).send("Invalid or expired login state");
 
   const checksum = crypto.createHash("sha256").update(apiKey + requestToken + apiSecret).digest("hex");
   const body = new URLSearchParams({ api_key: apiKey, request_token: requestToken, checksum });
@@ -33,8 +37,8 @@ export default async function handler(req, res) {
   }
 
   const code = encryptCode({ apiKey, accessToken: data.data.access_token, issuedAt: Date.now() }, codeKey);
-  const redirect = new URL(appRedirect);
+  const redirect = new URL(transaction.callbackUrl);
   redirect.searchParams.set("code", code);
-  res.writeHead(302, { Location: redirect.toString() });
+  res.writeHead(302, { Location: redirect.toString(), "Cache-Control": "no-store" });
   res.end();
 }
