@@ -7,10 +7,10 @@ object WidgetAppearance {
     const val LIGHT = "light"
     const val DARK = "dark"
     const val PITCH_BLACK = "pitch_black"
-
     const val COMPACT = "compact"
     const val STANDARD = "standard"
     const val DASHBOARD = "dashboard"
+    const val ALL_ACCOUNTS = "__all__"
 
     private const val PREFS = "widget_appearance"
     private const val THEME_PREFIX = "theme_"
@@ -19,66 +19,33 @@ object WidgetAppearance {
     private const val TODAY_PREFIX = "today_"
     private const val BREAKDOWN_PREFIX = "breakdown_"
     private const val CHART_PREFIX = "chart_"
+    private const val ACCOUNT_PREFIX = "account_"
     private const val HISTORY = "portfolio_history"
     private const val HISTORY_LIMIT = 30
 
-    fun theme(context: Context, appWidgetId: Int): String =
-        prefs(context).getString(THEME_PREFIX + appWidgetId, DARK) ?: DARK
+    fun theme(context: Context, id: Int) = prefs(context).getString(THEME_PREFIX + id, DARK) ?: DARK
+    fun opacity(context: Context, id: Int) = prefs(context).getInt(OPACITY_PREFIX + id, 100).coerceIn(20, 100)
+    fun layout(context: Context, id: Int): String = prefs(context).getString(LAYOUT_PREFIX + id, STANDARD) ?: STANDARD
+    fun showToday(context: Context, id: Int) = prefs(context).getBoolean(TODAY_PREFIX + id, true)
+    fun showBreakdown(context: Context, id: Int) = prefs(context).getBoolean(BREAKDOWN_PREFIX + id, true)
+    fun showChart(context: Context, id: Int) = prefs(context).getBoolean(CHART_PREFIX + id, false)
+    fun accountId(context: Context, id: Int): String = prefs(context).getString(ACCOUNT_PREFIX + id, ALL_ACCOUNTS) ?: ALL_ACCOUNTS
 
-    fun opacity(context: Context, appWidgetId: Int): Int =
-        prefs(context).getInt(OPACITY_PREFIX + appWidgetId, 100).coerceIn(20, 100)
-
-    fun layout(context: Context, appWidgetId: Int): String {
-        val stored = prefs(context).getString(LAYOUT_PREFIX + appWidgetId, STANDARD) ?: STANDARD
-        return when (stored) {
-            COMPACT, STANDARD, DASHBOARD -> stored
-            else -> STANDARD
-        }
-    }
-
-    fun showToday(context: Context, appWidgetId: Int): Boolean =
-        prefs(context).getBoolean(TODAY_PREFIX + appWidgetId, true)
-
-    fun showBreakdown(context: Context, appWidgetId: Int): Boolean =
-        prefs(context).getBoolean(BREAKDOWN_PREFIX + appWidgetId, true)
-
-    fun showChart(context: Context, appWidgetId: Int): Boolean =
-        prefs(context).getBoolean(CHART_PREFIX + appWidgetId, false)
-
-    fun save(
-        context: Context,
-        appWidgetId: Int,
-        theme: String,
-        opacity: Int,
-        layout: String = STANDARD,
-        showToday: Boolean = true,
-        showBreakdown: Boolean = true,
-        showChart: Boolean = false
-    ) {
-        val safeLayout = when (layout) {
-            COMPACT, STANDARD, DASHBOARD -> layout
-            else -> STANDARD
-        }
+    fun save(context: Context, id: Int, theme: String, opacity: Int, layout: String = STANDARD, showToday: Boolean = true, showBreakdown: Boolean = true, showChart: Boolean = false, accountId: String = ALL_ACCOUNTS) {
         prefs(context).edit()
-            .putString(THEME_PREFIX + appWidgetId, theme)
-            .putInt(OPACITY_PREFIX + appWidgetId, opacity.coerceIn(20, 100))
-            .putString(LAYOUT_PREFIX + appWidgetId, safeLayout)
-            .putBoolean(TODAY_PREFIX + appWidgetId, showToday)
-            .putBoolean(BREAKDOWN_PREFIX + appWidgetId, showBreakdown)
-            .putBoolean(CHART_PREFIX + appWidgetId, showChart)
+            .putString(THEME_PREFIX + id, theme)
+            .putInt(OPACITY_PREFIX + id, opacity.coerceIn(20, 100))
+            .putString(LAYOUT_PREFIX + id, layout)
+            .putBoolean(TODAY_PREFIX + id, showToday)
+            .putBoolean(BREAKDOWN_PREFIX + id, showBreakdown)
+            .putBoolean(CHART_PREFIX + id, showChart)
+            .putString(ACCOUNT_PREFIX + id, accountId)
             .apply()
     }
 
-    fun remove(context: Context, appWidgetId: Int) {
-        prefs(context).edit()
-            .remove(THEME_PREFIX + appWidgetId)
-            .remove(OPACITY_PREFIX + appWidgetId)
-            .remove(LAYOUT_PREFIX + appWidgetId)
-            .remove(TODAY_PREFIX + appWidgetId)
-            .remove(BREAKDOWN_PREFIX + appWidgetId)
-            .remove(CHART_PREFIX + appWidgetId)
-            .apply()
-    }
+    fun remove(context: Context, id: Int) = prefs(context).edit()
+        .remove(THEME_PREFIX + id).remove(OPACITY_PREFIX + id).remove(LAYOUT_PREFIX + id)
+        .remove(TODAY_PREFIX + id).remove(BREAKDOWN_PREFIX + id).remove(CHART_PREFIX + id).remove(ACCOUNT_PREFIX + id).apply()
 
     fun recordSnapshot(context: Context, snapshot: PortfolioSnapshot) {
         val existing = prefs(context).getString(HISTORY, "").orEmpty()
@@ -91,11 +58,6 @@ object WidgetAppearance {
         prefs(context).edit().putString(HISTORY, values.joinToString("|")).apply()
     }
 
-    fun history(context: Context): List<Float> =
-        prefs(context).getString(HISTORY, "").orEmpty()
-            .split('|')
-            .mapNotNull { it.substringAfter(':', "").toFloatOrNull() }
-
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun history(context: Context): List<Float> = prefs(context).getString(HISTORY, "").orEmpty().split('|').mapNotNull { it.substringAfter(':', "").toFloatOrNull() }
+    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }
