@@ -12,6 +12,7 @@ function encryptCode(payload, keyHex) {
 
 export default async function handler(req, res) {
   const requestToken = req.query?.request_token;
+  const state = req.query?.state;
   const apiKey = process.env.KITE_API_KEY;
   const apiSecret = process.env.KITE_API_SECRET;
   const codeKey = process.env.KITE_CODE_KEY;
@@ -32,7 +33,12 @@ export default async function handler(req, res) {
     return res.status(502).json({ error: "Kite token exchange failed", details: data.message || "Unknown error" });
   }
 
-  const code = encryptCode({ apiKey, accessToken: data.data.access_token, issuedAt: Date.now() }, codeKey);
+  const code = encryptCode({
+    apiKey,
+    accessToken: data.data.access_token,
+    state: state ? String(state).slice(0, 128) : undefined,
+    issuedAt: Date.now()
+  }, codeKey);
   const redirect = new URL(appRedirect);
   redirect.searchParams.set("code", code);
   res.writeHead(302, { Location: redirect.toString() });
