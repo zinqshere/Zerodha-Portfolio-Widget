@@ -2,6 +2,16 @@ package com.zinqshere.zerodhaportfoliowidget.data
 
 data class Holding(val symbol: String, val quantity: Double, val averagePrice: Double, val lastPrice: Double, val pnl: Double, val dayPnl: Double)
 data class FundHolding(val name: String, val units: Double, val invested: Double, val value: Double, val pnl: Double)
+
+data class ZerodhaAccount(
+    val id: String,
+    val label: String,
+    val apiKey: String = "",
+    val accessToken: String = ""
+) {
+    val connected: Boolean get() = apiKey.isNotBlank() && accessToken.isNotBlank()
+}
+
 data class PortfolioSnapshot(
     val equityValue: Double = 0.0,
     val equityInvested: Double = 0.0,
