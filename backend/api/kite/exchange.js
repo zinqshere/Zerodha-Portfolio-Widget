@@ -15,7 +15,7 @@ export default function handler(req, res) {
     decipher.setAuthTag(tag);
     const payload = JSON.parse(Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8"));
     if (!payload.issuedAt || Date.now() - payload.issuedAt > 60_000) return res.status(410).json({ error: "Login code expired" });
-    return res.status(200).json({ api_key: payload.apiKey, access_token: payload.accessToken });
+    return res.status(200).json({ api_key: payload.apiKey, access_token: payload.accessToken, state: payload.state || null });
   } catch {
     return res.status(400).json({ error: "Invalid login code" });
   }
