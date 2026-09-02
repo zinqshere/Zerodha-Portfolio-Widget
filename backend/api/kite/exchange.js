@@ -8,6 +8,7 @@ export default function handler(req, res) {
     const key = Buffer.from(keyHex, "hex");
     if (key.length !== 32) throw new Error("Invalid code key");
     const raw = Buffer.from(code, "base64url");
+    if (raw.length < 29) throw new Error("Invalid code");
     const iv = raw.subarray(0, 12);
     const tag = raw.subarray(12, 28);
     const ciphertext = raw.subarray(28);
@@ -15,6 +16,7 @@ export default function handler(req, res) {
     decipher.setAuthTag(tag);
     const payload = JSON.parse(Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8"));
     if (!payload.issuedAt || Date.now() - payload.issuedAt > 60_000) return res.status(410).json({ error: "Login code expired" });
+    res.setHeader("Cache-Control", "no-store");
     return res.status(200).json({ api_key: payload.apiKey, access_token: payload.accessToken });
   } catch {
     return res.status(400).json({ error: "Invalid login code" });
