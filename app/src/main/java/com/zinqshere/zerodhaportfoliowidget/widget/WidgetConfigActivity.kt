@@ -6,290 +6,102 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowInsetsControllerCompat
-
-private val SettingsCornerShape = RoundedCornerShape(24.dp)
+import com.zinqshere.zerodhaportfoliowidget.MainActivity
+import com.zinqshere.zerodhaportfoliowidget.data.PortfolioStore
 
 class WidgetConfigActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
-        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
-            setResult(Activity.RESULT_CANCELED)
-            finish()
-            return
-        }
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) { setResult(Activity.RESULT_CANCELED); finish(); return }
 
+        val store = PortfolioStore(this)
+        val accounts = store.accounts()
+        val initialAccount = WidgetAppearance.accountId(this, appWidgetId).takeIf { it == WidgetAppearance.ALL_ACCOUNTS || accounts.any { a -> a.id == it } } ?: WidgetAppearance.ALL_ACCOUNTS
         val initialTheme = WidgetAppearance.theme(this, appWidgetId)
-        val initialOpacity = WidgetAppearance.opacity(this, appWidgetId)
-        val storedLayout = WidgetAppearance.layout(this, appWidgetId)
-        val initialLayout = if (storedLayout == WidgetAppearance.DASHBOARD) WidgetAppearance.STANDARD else storedLayout
+        val initialLayout = WidgetAppearance.layout(this, appWidgetId)
         val initialToday = WidgetAppearance.showToday(this, appWidgetId)
         val initialBreakdown = WidgetAppearance.showBreakdown(this, appWidgetId)
 
         setContent {
+            var accountId by remember { mutableStateOf(initialAccount) }
             var theme by remember { mutableStateOf(initialTheme) }
-            var opacity by remember { mutableFloatStateOf(initialOpacity.toFloat()) }
             var layout by remember { mutableStateOf(initialLayout) }
             var showToday by remember { mutableStateOf(initialToday) }
             var showBreakdown by remember { mutableStateOf(initialBreakdown) }
+            MaterialTheme {
+                Surface(Modifier.fillMaxSize()) {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text("Choose which Zerodha portfolio this widget displays. You can use a different account for every widget.", color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-            val colorScheme = when (theme) {
-                WidgetAppearance.LIGHT -> appLightScheme()
-                WidgetAppearance.PITCH_BLACK -> appPitchBlackScheme()
-                else -> appDarkMonetScheme()
-            }
-
-            MaterialTheme(colorScheme = colorScheme) {
-                val view = androidx.compose.ui.platform.LocalView.current
-                val controller = remember(view, theme) {
-                    WindowInsetsControllerCompat(window, view)
-                }
-                DisposableEffect(controller, theme) {
-                    controller.isAppearanceLightStatusBars = theme == WidgetAppearance.LIGHT
-                    controller.isAppearanceLightNavigationBars = theme == WidgetAppearance.LIGHT
-                    onDispose { }
-                }
-
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .statusBarsPadding()
-                                .padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 22.dp)
-                        ) {
-                            Text("Widget settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(4.dp))
-                            Text("Customize this widget. Other widgets can use different settings.", style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(18.dp))
-                            WidgetPreview(theme, opacity, layout, showToday, showBreakdown)
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .verticalScroll(rememberScrollState())
-                                .padding(horizontal = 24.dp),
-                            verticalArrangement = Arrangement.spacedBy(18.dp)
-                        ) {
-                            SettingsCard(title = "Layout") {
-                                LayoutChoice("Compact — value + return", WidgetAppearance.COMPACT, layout) { layout = it }
-                                LayoutChoice("Standard — breakdown", WidgetAppearance.STANDARD, layout) { layout = it }
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Zerodha account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                AccountChoice("All accounts — combined portfolio", WidgetAppearance.ALL_ACCOUNTS, accountId) { accountId = it }
+                                accounts.forEach { account ->
+                                    AccountChoice("${account.label} — ${if (account.connected) "connected" else "needs login"}", account.id, accountId) { accountId = it }
+                                }
+                                OutlinedButton(onClick = { startActivity(Intent(this@WidgetConfigActivity, MainActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Manage / add Zerodha accounts")
+                                }
                             }
+                        }
 
-                            SettingsCard(title = "Appearance") {
-                                LayoutChoice("Light / Monet", WidgetAppearance.LIGHT, theme) { theme = it }
-                                LayoutChoice("Dark Monet", WidgetAppearance.DARK, theme) { theme = it }
-                                LayoutChoice("Pitch black", WidgetAppearance.PITCH_BLACK, theme) { theme = it }
-                                Spacer(Modifier.height(8.dp))
-                                Text("Opacity", style = MaterialTheme.typography.labelLarge)
-                                Text("${opacity.toInt()}%", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Slider(value = opacity, onValueChange = { opacity = it }, valueRange = 20f..100f, steps = 15)
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Layout", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                AccountChoice("Compact — value + returns", WidgetAppearance.COMPACT, layout) { layout = it }
+                                AccountChoice("Standard — breakdown", WidgetAppearance.STANDARD, layout) { layout = it }
+                                AccountChoice("Dashboard", WidgetAppearance.DASHBOARD, layout) { layout = it }
                             }
+                        }
 
-                            SettingsCard(title = "Information") {
-                                SettingSwitch("Today's P&L", showToday) { showToday = it }
-                                SettingSwitch("Equity + mutual fund breakdown", showBreakdown) { showBreakdown = it }
+                        Card(shape = RoundedCornerShape(22.dp)) {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                AccountChoice("Light / Monet", WidgetAppearance.LIGHT, theme) { theme = it }
+                                AccountChoice("Dark Monet", WidgetAppearance.DARK, theme) { theme = it }
+                                AccountChoice("Pitch black", WidgetAppearance.PITCH_BLACK, theme) { theme = it }
+                                SwitchRow("Today's P&L", showToday) { showToday = it }
+                                SwitchRow("Equity + mutual fund breakdown", showBreakdown) { showBreakdown = it }
                             }
-                            Spacer(Modifier.height(6.dp))
                         }
 
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                            tonalElevation = 3.dp,
-                            shadowElevation = 2.dp,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .navigationBarsPadding()
-                        ) {
-                            Button(
-                                onClick = {
-                                    WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, opacity.toInt(), layout, showToday, showBreakdown, false)
-                                    setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-                                    PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
-                                    finish()
-                                },
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 12.dp)
-                                    .height(52.dp)
-                            ) { Text("Save widget") }
-                        }
+                        Button(onClick = {
+                            WidgetAppearance.save(this@WidgetConfigActivity, appWidgetId, theme, WidgetAppearance.opacity(this@WidgetConfigActivity, appWidgetId), layout, showToday, showBreakdown, false, accountId)
+                            setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+                            PortfolioWidgetReceiver.refresh(this@WidgetConfigActivity)
+                            finish()
+                        }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(50)) { Text("Save widget") }
                     }
-                }
-            }
-        }
-    }
-
-    private fun appLightScheme() = androidx.compose.material3.lightColorScheme()
-
-    private fun appDarkMonetScheme() = androidx.compose.material3.darkColorScheme()
-
-    private fun appPitchBlackScheme() = androidx.compose.material3.darkColorScheme(
-        background = Color.Black,
-        surface = Color.Black,
-        surfaceVariant = Color(0xFF161616)
-    )
-}
-
-@Composable
-private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = SettingsCornerShape
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            content()
-        }
-    }
-}
-
-@Composable
-private fun LayoutChoice(label: String, value: String, selected: String, onSelected: (String) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(selected = selected == value, onClick = { onSelected(value) })
-        Spacer(Modifier.width(8.dp))
-        Text(label, modifier = Modifier.padding(end = 12.dp))
-    }
-}
-
-@Composable
-private fun SettingSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChecked)
-    }
-}
-
-@Composable
-private fun WidgetPreview(theme: String, opacity: Float, layout: String, showToday: Boolean, showBreakdown: Boolean) {
-    val palette = when (theme) {
-        WidgetAppearance.LIGHT -> PreviewPalette(Color(0xFFF7F7F9), Color(0xFF18171B), Color(0xFF504E56), Color(0xFF187841))
-        WidgetAppearance.PITCH_BLACK -> PreviewPalette(Color.Black, Color.White, Color(0xFFCDC9D3), Color(0xFF91EBA4))
-        else -> PreviewPalette(Color(0xFF252329), Color.White, Color(0xFFCDC9D3), Color(0xFF91EBA4))
-    }
-    val compact = layout == WidgetAppearance.COMPACT
-    val cardHeight = if (compact) 112.dp else 182.dp
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Preview", style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(8.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(cardHeight)
-                .clip(RoundedCornerShape(26.dp))
-                .background(palette.background.copy(alpha = opacity / 100f))
-                .padding(horizontal = 18.dp, vertical = 14.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Zerodha Portfolio", color = palette.content, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                    Text("↻", color = palette.positive, style = MaterialTheme.typography.titleMedium)
-                }
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("₹12,45,820", color = palette.content, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        Text("+₹1,84,230   +17.35%", color = palette.positive, fontWeight = FontWeight.Bold)
-                    }
-                    if (!compact && showToday) {
-                        Column(modifier = Modifier.padding(start = 12.dp)) {
-                            Text("Today", color = palette.secondary, style = MaterialTheme.typography.labelMedium)
-                            Text("+₹4,280", color = palette.positive, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                            Text("+0.34%", color = palette.positive, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-                if (!compact && showBreakdown) {
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(palette.secondary.copy(alpha = 0.28f)))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        PreviewMetric("Equity", "₹8.72L", "+17.88%", palette)
-                        PreviewMetric("Mutual Funds", "₹3.73L", "+16.13%", palette)
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                if (!compact) {
-                    Text("Updated 2 min ago", color = palette.secondary, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
     }
 }
 
-@Composable
-private fun RowScope.PreviewMetric(label: String, value: String, pnl: String, palette: PreviewPalette) {
-    Column(modifier = Modifier.weight(1f)) {
-        Text(label, color = palette.secondary, style = MaterialTheme.typography.labelMedium)
-        Text(value, color = palette.content, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-        Text(pnl, color = palette.positive, style = MaterialTheme.typography.labelMedium)
+@Composable private fun AccountChoice(label: String, value: String, selected: String, onSelected: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected = value == selected, onClick = { onSelected(value) })
+        Text(label, modifier = Modifier.padding(start = 8.dp))
     }
 }
 
-private data class PreviewPalette(val background: Color, val content: Color, val secondary: Color, val positive: Color)
+@Composable private fun SwitchRow(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f)); Switch(checked, onChecked)
+    }
+}
